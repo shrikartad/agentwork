@@ -161,6 +161,8 @@ def fetch(
     log=print,
 ) -> dict:
     """Stream ``day`` from ``base``, slice ``symbols`` into ``out_root/day/``."""
+    if max_gz_bytes is not None and max_gz_bytes <= 0:
+        raise ValueError("max_gz_bytes must be greater than zero")
     url = tape_url(day, base)
     out_dir = out_root / day
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -171,28 +173,38 @@ def fetch(
     slicer = _SymbolSlicer(out_dir, symbols)
     inflater = zlib.decompressobj(16 + zlib.MAX_WBITS)
     gz_bytes = 0
+    gz_hash = hashlib.sha256()
     t0 = time.time()
     next_log = 0
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        while True:
-            block = resp.read(chunk)
-            if not block:
-                break
-            gz_bytes += len(block)
-            slicer.feed(inflater.decompress(block))
-            if gz_bytes >= next_log:
-                hours = slicer.last_ts_ns / 3.6e12
-                log(
-                    f"  {gz_bytes / 1e6:8.1f} MB gz · {slicer.messages / 1e6:7.2f} M msgs · "
-                    f"tape clock {hours:5.2f} h · {time.time() - t0:6.1f} s"
-                )
-                next_log += 256 << 20
-        # a Range-truncated gzip has no valid trailer — flush what inflated cleanly
-        try:
-            slicer.feed(inflater.flush())
-        except zlib.error:
-            pass
-    slicer.close()
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            while True:
+                # A server is expected to honor Range, but enforce the caller's
+                # bound locally as well so a proxy cannot turn a smoke run into a
+                # full multi-gigabyte download.
+                read_size = chunk if max_gz_bytes is None else min(chunk, max_gz_bytes - gz_bytes)
+                if read_size <= 0:
+                    break
+                block = resp.read(read_size)
+                if not block:
+                    break
+                gz_bytes += len(block)
+                gz_hash.update(block)
+                slicer.feed(inflater.decompress(block))
+                if gz_bytes >= next_log:
+                    hours = slicer.last_ts_ns / 3.6e12
+                    log(
+                        f"  {gz_bytes / 1e6:8.1f} MB gz · {slicer.messages / 1e6:7.2f} M msgs · "
+                        f"tape clock {hours:5.2f} h · {time.time() - t0:6.1f} s"
+                    )
+                    next_log += 256 << 20
+            # A Range-truncated gzip has no valid trailer — flush what inflated cleanly.
+            try:
+                slicer.feed(inflater.flush())
+            except zlib.error:
+                pass
+    finally:
+        slicer.close()
 
     outputs = {}
     for locate, stock in slicer.locate_to_symbol.items():
@@ -210,6 +222,9 @@ def fetch(
         "day": day,
         "gz_bytes_fetched": gz_bytes,
         "range_limited": max_gz_bytes is not None,
+        "max_gz_bytes_requested": max_gz_bytes,
+        "gzip_stream_complete": inflater.eof,
+        "gz_sha256": gz_hash.hexdigest(),
         "raw_bytes_inflated": slicer.raw_bytes,
         "messages_framed": slicer.messages,
         "last_tape_ts_ns": slicer.last_ts_ns,
