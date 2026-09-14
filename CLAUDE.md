@@ -130,6 +130,14 @@ included in JSON and Markdown. Fresh-workspace verification: **297 passed /
 13 skipped** (native module and full local tape absent); scoped Ruff, compileall,
 and diff checks pass. These are harness results, not a completed research study.
 
+**First full-session milestone:** 2019-12-30 E1–E6 is complete for AAPL
+(1,484,259 regular rows) and QQQ (2,209,131), with zero truncation, integrity,
+or unknown-ID errors. The takeover independently verified the full gzip and
+both slice hashes against the completed handoff; original execution provenance
+is preserved. **1/15 sessions complete.** E7 remains pending: an audit identified
+post-match queue fill loss and action-dependent random-flow consumption, so the
+earlier rerun is provisional and must not support fairness/superiority claims.
+
 **Campaign execution started 2026-09-14:** full E7 retraining/evaluation uses a
 fresh cache. The live ITCH preflight found eight old catalogue entries have only
 checksum stubs, not downloadable tapes. The corrected 15-full-session cohort
@@ -331,6 +339,8 @@ This is the Person A ↔ Person B integration seam.
 
 **Current Person-B next steps:** run the full 15-day tape campaign when bandwidth
 permits, then regenerate and review statistical reports under the current code.
+2019-12-30 is now complete; finish the other 14 sessions. Repair and verify the
+E7 simulator accounting/flow findings before its fresh full-protocol rerun.
 Continue on `hoplite/paros-710e0625`; use a verified E7 cache and do not substitute
 earlier training artifacts without matching their full provenance.
 These two execution tasks are now active; source substitutions and actual

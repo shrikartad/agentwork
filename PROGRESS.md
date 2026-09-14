@@ -5,6 +5,13 @@ This authorized working copy preserves upstream Nexus-LOB PR #19 at
 `69ae5af8faeaaf6694630cddc2c44b6ce0096ca6` and adds the remaining Person-B implementation.
 No upstream PR was opened or modified by this follow-up.
 
+**Full-day milestone: 1/15 complete.** The verified 2019-12-30 E1–E6 handoff has
+1,484,259 AAPL and 2,209,131 QQQ regular-session rows, with zero truncation,
+integrity, or unknown-ID errors. An independent full download matched all source
+and slice hashes; execution provenance remains pinned to the original code.
+The other 14 sessions are still pending. E7's earlier full rerun is provisional:
+queue accounting and exogenous RNG findings must be corrected before new claims.
+
 **Takeover preparation verified:** E7 now rejects stale/unverified training caches,
 records source/runtime/policy provenance and raw-row hashes, and publishes paired
 fill/drawdown CIs with their reporting limitations. **297 tests passed / 13 skipped**

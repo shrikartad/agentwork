@@ -1,0 +1,86 @@
+{
+  "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/12302019.NASDAQ_ITCH50.gz",
+  "day": "12302019",
+  "gz_bytes_fetched": 3524013057,
+  "range_limited": false,
+  "max_gz_bytes_requested": null,
+  "gzip_stream_complete": true,
+  "gz_sha256": "ef03df46a27e6bda4dead017f84c2e3979df7211f02c7868b51d53fceb99c689",
+  "gz_md5": "23514ef98821448a3f8f4c5b4095f3f5",
+  "download_workers": 4,
+  "http_source_identity": {
+    "url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/12302019.NASDAQ_ITCH50.gz",
+    "resolved_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/12302019.NASDAQ_ITCH50.gz",
+    "content_length": 3524013057,
+    "etag": "\"64b3281599bfd51:0\"",
+    "last_modified": "Tue, 31 Dec 2019 05:13:48 GMT"
+  },
+  "raw_bytes_inflated": 8251407909,
+  "messages_framed": 268744780,
+  "last_tape_ts_ns": 72300000040070,
+  "session_events": [
+    {
+      "code": "O",
+      "ts_ns": 11072057543747
+    },
+    {
+      "code": "S",
+      "ts_ns": 14400000198145
+    },
+    {
+      "code": "Q",
+      "ts_ns": 34200000075566
+    },
+    {
+      "code": "M",
+      "ts_ns": 57600000071785
+    },
+    {
+      "code": "E",
+      "ts_ns": 72000000019686
+    },
+    {
+      "code": "C",
+      "ts_ns": 72300000040070
+    }
+  ],
+  "symbols": {
+    "AAPL": {
+      "file": "AAPL.itch",
+      "locate": 13,
+      "bytes": 46261380,
+      "sha256": "50326efafe6d57529047e2687b25336f59c2714e4f7811e310dd914f2d34186a",
+      "messages": {
+        "R": 1,
+        "A": 695972,
+        "D": 654457,
+        "E": 60203,
+        "P": 7178,
+        "X": 1467,
+        "F": 2772,
+        "U": 96968,
+        "C": 340
+      }
+    },
+    "QQQ": {
+      "file": "QQQ.itch",
+      "locate": 6556,
+      "bytes": 71020439,
+      "sha256": "df0122722850c516994112cc6327addaac384976242c619235393c40aaf75bca",
+      "messages": {
+        "R": 1,
+        "A": 1110478,
+        "D": 1096529,
+        "E": 21075,
+        "X": 34226,
+        "U": 109274,
+        "F": 1344,
+        "P": 2295,
+        "C": 1020
+      }
+    }
+  },
+  "symbols_not_found": [],
+  "fetched_at_unix": 1789387465,
+  "license": "Nasdaq TotalView-ITCH sample data, provided by Nasdaq for evaluation; not redistributed by this repository (data/ is gitignored)."
+}

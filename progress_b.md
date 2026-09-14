@@ -9,6 +9,20 @@
 
 ### Full-campaign execution update (2026-09-14)
 
+**Completed day milestone: 1/15.** The 2019-12-30 AAPL/QQQ E1–E6 reports are
+imported from verified handoff `9ddf4d8`. An independent full 3.524 GB download
+matched the compressed source and both slice hashes. Original-source fingerprint
+`42fd6e69…` was recomputed from recorded commit `4b10862`; all output hashes and
+sample counts were checked. AAPL has 1,484,259 regular rows and QQQ 2,209,131,
+with zero parser truncations, integrity issues, or unknown IDs. See the immutable
+per-day execution manifest and `takeover_validation.json`. Remaining: 14 days.
+
+The prior full E7 rerun is **provisional**, not valid fairness evidence: independent
+review found post-match queue haircuts discarding executed shares, maker fills
+entering market VWAP, and strategy-dependent flow RNG consumption. Corrections
+and regression tests are in progress before retraining. Price/PnL metrics are
+gross; fees/impact/rebates affect training reward, not those reported metrics.
+
 **Takeover milestone:** E7 policy caches now verify the complete training
 configuration, environment knobs, executable-source fingerprint, runtime
 versions, and policy SHA-256 before reuse. Old or mismatched caches retrain;

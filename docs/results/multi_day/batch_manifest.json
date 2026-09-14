@@ -1,0 +1,67 @@
+{
+  "days": {
+    "12302019": {
+      "analysis_status": "completed",
+      "coverage": {
+        "gz_bytes_fetched": 3524013057,
+        "gzip_stream_complete": true,
+        "is_full_day": true,
+        "kind": "full_day",
+        "last_tape_ts_ns": 72300000040070,
+        "max_gz_bytes_requested": null,
+        "range_limited": false,
+        "session_events": [
+          {
+            "code": "O",
+            "ts_ns": 11072057543747
+          },
+          {
+            "code": "S",
+            "ts_ns": 14400000198145
+          },
+          {
+            "code": "Q",
+            "ts_ns": 34200000075566
+          },
+          {
+            "code": "M",
+            "ts_ns": 57600000071785
+          },
+          {
+            "code": "E",
+            "ts_ns": 72000000019686
+          },
+          {
+            "code": "C",
+            "ts_ns": 72300000040070
+          }
+        ]
+      },
+      "day": "12302019",
+      "executed_source_commit": "4b108622d9abb23794858eb534d0d642e3512f99",
+      "handoff_commit": "9ddf4d84bb321e7b22fd0dc1b780dd88ce511954",
+      "status": "completed",
+      "symbols": [
+        "AAPL",
+        "QQQ"
+      ],
+      "updated_at_unix": 1789389145
+    }
+  },
+  "kind": "nexus-lob-itch-research-batch",
+  "latest_request": {
+    "base": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/",
+    "days": [
+      "12302019"
+    ],
+    "download_workers": 4,
+    "max_gz_bytes": null,
+    "skip_existing": true,
+    "symbols": [
+      "AAPL",
+      "QQQ"
+    ]
+  },
+  "schema_version": 1,
+  "updated_at_unix": 1789389145
+}

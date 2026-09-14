@@ -1,0 +1,132 @@
+{
+  "day_status": [
+    {
+      "analysis_status": "completed",
+      "batch_status": "completed",
+      "coverage": "full_day",
+      "day": "12302019",
+      "error": null,
+      "is_full_day": true,
+      "regular_events": {
+        "AAPL": 1484259,
+        "QQQ": 2209131
+      },
+      "symbols": [
+        "AAPL",
+        "QQQ"
+      ]
+    }
+  ],
+  "kind": "nexus-lob-itch-multi-day-summary",
+  "lob_imbalance_test_ic": [
+    {
+      "ci95_hi": 0.1435955092521058,
+      "ci95_lo": 0.13570357186759857,
+      "coverage": "full_day",
+      "day": "12302019",
+      "horizon_events": 1,
+      "n_test": 296827,
+      "rank_ic_test": 0.13950670528393183,
+      "symbol": "AAPL"
+    },
+    {
+      "ci95_hi": 0.22851573449690574,
+      "ci95_lo": 0.2130935146449223,
+      "coverage": "full_day",
+      "day": "12302019",
+      "horizon_events": 5,
+      "n_test": 296827,
+      "rank_ic_test": 0.22011427126551894,
+      "symbol": "AAPL"
+    },
+    {
+      "ci95_hi": 0.24878339354892778,
+      "ci95_lo": 0.22940734008507707,
+      "coverage": "full_day",
+      "day": "12302019",
+      "horizon_events": 10,
+      "n_test": 296826,
+      "rank_ic_test": 0.23806158452007534,
+      "symbol": "AAPL"
+    },
+    {
+      "ci95_hi": 0.24297295576438058,
+      "ci95_lo": 0.21627321130217578,
+      "coverage": "full_day",
+      "day": "12302019",
+      "horizon_events": 25,
+      "n_test": 296823,
+      "rank_ic_test": 0.22888701796520286,
+      "symbol": "AAPL"
+    },
+    {
+      "ci95_hi": 0.1578396256062438,
+      "ci95_lo": 0.15215855865412756,
+      "coverage": "full_day",
+      "day": "12302019",
+      "horizon_events": 1,
+      "n_test": 441802,
+      "rank_ic_test": 0.15494824991946562,
+      "symbol": "QQQ"
+    },
+    {
+      "ci95_hi": 0.30095510784868934,
+      "ci95_lo": 0.29049400009544657,
+      "coverage": "full_day",
+      "day": "12302019",
+      "horizon_events": 5,
+      "n_test": 441800,
+      "rank_ic_test": 0.29611738335034293,
+      "symbol": "QQQ"
+    },
+    {
+      "ci95_hi": 0.3819487946075395,
+      "ci95_lo": 0.3677769003092454,
+      "coverage": "full_day",
+      "day": "12302019",
+      "horizon_events": 10,
+      "n_test": 441799,
+      "rank_ic_test": 0.3751479934803844,
+      "symbol": "QQQ"
+    },
+    {
+      "ci95_hi": 0.4733603425053527,
+      "ci95_lo": 0.454222519910568,
+      "coverage": "full_day",
+      "day": "12302019",
+      "horizon_events": 25,
+      "n_test": 441796,
+      "rank_ic_test": 0.46242982975495434,
+      "symbol": "QQQ"
+    }
+  ],
+  "queue_and_adverse_availability": [
+    {
+      "adverse_h5_mean_drift": -50.0442220160925,
+      "adverse_h5_n": 46357,
+      "coverage": "full_day",
+      "day": "12302019",
+      "km_p_fill_h50": 0.03350108910530625,
+      "passive_fills": 46357,
+      "regular_orders": 791477,
+      "symbol": "AAPL"
+    },
+    {
+      "adverse_h5_mean_drift": -25.724719737289096,
+      "adverse_h5_n": 17662,
+      "coverage": "full_day",
+      "day": "12302019",
+      "km_p_fill_h50": 0.011951100221350708,
+      "passive_fills": 17662,
+      "regular_orders": 1141142,
+      "symbol": "QQQ"
+    }
+  ],
+  "schema_version": 1,
+  "scope": {
+    "description": "Descriptive index of separate per-day E1-E6 studies; no event rows or estimates are pooled.",
+    "partial_prefix_policy": "Partial GZIP prefixes are labelled and are not full-day evidence.",
+    "pooled_cross_day_inference": false
+  },
+  "updated_at_unix": 1789389145
+}

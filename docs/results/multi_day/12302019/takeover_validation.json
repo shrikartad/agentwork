@@ -1,0 +1,13 @@
+{
+  "day": "12302019",
+  "executed_source_commit": "4b108622d9abb23794858eb534d0d642e3512f99",
+  "handoff_commit": "9ddf4d84bb321e7b22fd0dc1b780dd88ce511954",
+  "independent_compressed_source_and_both_slice_hashes_match": true,
+  "independent_source_manifest_sha256": "b91e12db9d94559eabac23d65c336ed98dd26bcbc9cf03822cb70cda39442850",
+  "note": "Original execution and source fingerprints are preserved, not replaced with the takeover checkout fingerprint. Simulator-only corrections do not change this real-tape study.",
+  "regular_event_cap": null,
+  "source_byte_cap": null,
+  "source_fingerprint_verified": "42fd6e69dabf8f2d91d6961ca2a80c958985fb350d4d111ae9b9fdd0d8fbf202",
+  "status": "verified_complete",
+  "verified_at_unix": 1789389145
+}

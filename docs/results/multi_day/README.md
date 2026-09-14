@@ -45,7 +45,24 @@ metadata are committed; licensed source bytes and policy files are not.
 
 ## Execution status
 
-The full campaign is in progress. Availability and prefix-format checks are not
-research results. A day is complete only when its validated research manifest
-and both symbol reports exist; the final execution review will record actual
-coverage, integrity, results, and remaining limitations.
+**1 of 15 sessions is verified complete: 2019-12-30.** Its uncapped 3,524,013,057-byte
+gzip produced 1,484,259 AAPL and 2,209,131 QQQ regular-session rows. Both symbols
+have zero truncated messages, integrity issues, or unknown order IDs.
+
+The completed analysis was handed over from commit `9ddf4d8`; the takeover
+independently downloaded the entire source and verified identical gzip and symbol
+slice hashes. Original execution/source fingerprints are preserved in
+[`12302019/execution_manifest.json`](12302019/execution_manifest.json), with the
+independent checks in [`12302019/takeover_validation.json`](12302019/takeover_validation.json).
+These results were executed against `4b10862`, not silently relabeled as a later
+checkout. The simulator corrections for E7 are a separate study.
+
+| Symbol | L1 imbalance rank IC, h=1 [95% CI] | h=25 [95% CI] |
+|---|---|---|
+| AAPL | 0.1395 [0.1357, 0.1436] | 0.2289 [0.2163, 0.2430] |
+| QQQ | 0.1549 [0.1522, 0.1578] | 0.4624 [0.4542, 0.4734] |
+
+The other 14 sessions remain incomplete; the next full source download is
+2019-01-30. Availability and partial downloads are not research results. A day
+counts only after its research manifest and both symbol reports validate.
+The generated cross-day index is descriptive, not pooled statistical evidence.
