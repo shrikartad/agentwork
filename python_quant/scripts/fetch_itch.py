@@ -49,29 +49,44 @@ import sys
 import time
 import urllib.request
 import zlib
+from contextlib import closing
 from pathlib import Path
 
 DEFAULT_BASE = "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/"
 DEFAULT_DAY = "12302019"  # smallest recent full day on the public server
 DEFAULT_SYMBOLS = ("QQQ", "AAPL")
 
-# 15 public TotalView-ITCH 5.0 sample days available on emi.nasdaq.com
-PUBLIC_SAMPLE_DAYS: tuple[str, ...] = (
+# Full-session gzip files verified in Nasdaq's directory on 2026-09-14.
+# 2025-11-28 is a half-day and is excluded from the fixed 09:30–16:00 study.
+PUBLIC_SAMPLE_FILES: dict[str, str] = {
+    "01302019": "01302019.NASDAQ_ITCH50.gz",
+    "03272019": "03272019.NASDAQ_ITCH50.gz",
+    "07302019": "07302019.NASDAQ_ITCH50.gz",
+    "08302019": "08302019.NASDAQ_ITCH50.gz",
+    "10182019": "S101819-v50.txt.gz",
+    "10302019": "10302019.NASDAQ_ITCH50.gz",
+    "12302019": "12302019.NASDAQ_ITCH50.gz",
+    "01302020": "01302020.NASDAQ_ITCH50.gz",
+    "07132021": "S071321-v50.txt.gz",
+    "08132021": "S081321-v50.txt.gz",
+    "12082025": "S120825-v50.txt.gz",
+    "12092025": "S120925-v50.txt.gz",
+    "12102025": "S121025-v50.txt.gz",
+    "12112025": "S121125-v50.txt.gz",
+    "12122025": "S121225-v50.txt.gz",
+}
+PUBLIC_SAMPLE_DAYS: tuple[str, ...] = tuple(PUBLIC_SAMPLE_FILES)
+
+# Only checksum stubs remain online; explicit dates still permit local reuse.
+UNAVAILABLE_SAMPLE_DAYS: tuple[str, ...] = (
     "01302018",
-    "01302019",
-    "01302020",
-    "03272019",
     "03292018",
     "05302018",
     "05302019",
     "07302018",
-    "07302019",
     "08302018",
-    "08302019",
     "10302018",
-    "10302019",
     "12282018",
-    "12302019",
 )
 
 # Message types carried over into every per-symbol slice.
@@ -81,7 +96,8 @@ _DIRECTORY_TYPE = ord("R")
 
 
 def tape_url(day: str, base: str = DEFAULT_BASE) -> str:
-    return f"{base}{day}.NASDAQ_ITCH50.gz"
+    filename = PUBLIC_SAMPLE_FILES.get(day, f"{day}.NASDAQ_ITCH50.gz")
+    return f"{base}{filename}"
 
 
 class _SymbolSlicer:
@@ -150,6 +166,18 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def _stream_blocks(req, *, chunk: int, max_bytes: int | None):
+    total = 0
+    with urllib.request.urlopen(req, timeout=120) as response:
+        while max_bytes is None or total < max_bytes:
+            size = chunk if max_bytes is None else min(chunk, max_bytes - total)
+            block = response.read(size)
+            if not block:
+                break
+            total += len(block)
+            yield block
+
+
 def fetch(
     *,
     day: str,
@@ -158,11 +186,15 @@ def fetch(
     base: str = DEFAULT_BASE,
     max_gz_bytes: int | None = None,
     chunk: int = 1 << 20,
+    download_workers: int = 1,
+    download_cache: Path | None = None,
     log=print,
 ) -> dict:
     """Stream ``day`` from ``base``, slice ``symbols`` into ``out_root/day/``."""
     if max_gz_bytes is not None and max_gz_bytes <= 0:
         raise ValueError("max_gz_bytes must be greater than zero")
+    if download_workers not in (1, 2, 3, 4):
+        raise ValueError("download_workers must be between 1 and 4")
     url = tape_url(day, base)
     out_dir = out_root / day
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -170,26 +202,30 @@ def fetch(
     if max_gz_bytes is not None:
         req.add_header("Range", f"bytes=0-{int(max_gz_bytes) - 1}")
 
+    ranged = download_workers > 1 and max_gz_bytes is None
+    cache = download_cache if download_cache is not None else out_root / ".downloads" / day
+    source = None
+    if ranged:
+        from itch_transport import iter_cached_ranges, probe_source
+
+        source = probe_source(url, log=log)
+        blocks = iter_cached_ranges(url, cache, source=source, workers=download_workers, log=log)
+    else:
+        blocks = _stream_blocks(req, chunk=chunk, max_bytes=max_gz_bytes)
+
     slicer = _SymbolSlicer(out_dir, symbols)
     inflater = zlib.decompressobj(16 + zlib.MAX_WBITS)
     gz_bytes = 0
     gz_hash = hashlib.sha256()
+    gz_md5 = hashlib.md5(usedforsecurity=False)
     t0 = time.time()
     next_log = 0
     try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            while True:
-                # A server is expected to honor Range, but enforce the caller's
-                # bound locally as well so a proxy cannot turn a smoke run into a
-                # full multi-gigabyte download.
-                read_size = chunk if max_gz_bytes is None else min(chunk, max_gz_bytes - gz_bytes)
-                if read_size <= 0:
-                    break
-                block = resp.read(read_size)
-                if not block:
-                    break
+        with closing(blocks):
+            for block in blocks:
                 gz_bytes += len(block)
                 gz_hash.update(block)
+                gz_md5.update(block)
                 slicer.feed(inflater.decompress(block))
                 if gz_bytes >= next_log:
                     hours = slicer.last_ts_ns / 3.6e12
@@ -225,9 +261,16 @@ def fetch(
         "max_gz_bytes_requested": max_gz_bytes,
         "gzip_stream_complete": inflater.eof,
         "gz_sha256": gz_hash.hexdigest(),
+        "gz_md5": gz_md5.hexdigest(),
+        "download_workers": download_workers if ranged else 1,
+        "http_source_identity": source.as_dict() if source is not None else None,
         "raw_bytes_inflated": slicer.raw_bytes,
         "messages_framed": slicer.messages,
         "last_tape_ts_ns": slicer.last_ts_ns,
+        "session_events": [
+            {"code": chr(message[13]), "ts_ns": int.from_bytes(message[7:13], "big")}
+            for message in slicer.session_msgs
+        ],
         "symbols": outputs,
         "symbols_not_found": missing,
         "fetched_at_unix": int(time.time()),
@@ -242,6 +285,10 @@ def fetch(
         log(f"  {stock:<6} {info['bytes'] / 1e6:7.2f} MB  {info['messages']}")
     if missing:
         log(f"  not found in directory: {missing}")
+    if ranged and inflater.eof and not missing:
+        from itch_transport import cleanup_cached_ranges
+
+        cleanup_cached_ranges(cache, source)
     return manifest
 
 
@@ -251,6 +298,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--symbols", default=",".join(DEFAULT_SYMBOLS), help="comma-separated tickers")
     ap.add_argument("--out", type=Path, default=Path("data/itch"), help="output root (gitignored)")
     ap.add_argument("--base", default=DEFAULT_BASE, help="override the public base URL")
+    ap.add_argument("--download-workers", type=int, choices=range(1, 5), default=1,
+                    help="full-tape range workers (2–4 enable a resumable compressed-byte cache)")
     ap.add_argument(
         "--max-gz-bytes", type=int, default=None,
         help="only fetch this many gzip bytes (HTTP Range) — smoke tests / CI",
@@ -260,7 +309,8 @@ def main(argv: list[str] | None = None) -> int:
     if not symbols:
         ap.error("--symbols must name at least one ticker")
     print(f"fetching {tape_url(args.day, args.base)} → {args.out / args.day}  symbols={sorted(symbols)}")
-    fetch(day=args.day, symbols=symbols, out_root=args.out, base=args.base, max_gz_bytes=args.max_gz_bytes)
+    fetch(day=args.day, symbols=symbols, out_root=args.out, base=args.base,
+          max_gz_bytes=args.max_gz_bytes, download_workers=args.download_workers)
     return 0
 
 

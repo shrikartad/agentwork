@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import gzip
+import hashlib
 import io
 import json
 import sys
@@ -20,6 +21,19 @@ from nexus_quant.book_state import Side
 from nexus_quant.itch_parser import EventType, NormalizedEvent, encode_event
 
 DAYS = ("12302019", "01302020")
+
+
+def test_current_catalogue_uses_real_gzip_names_and_retains_explicit_legacy_dates():
+    assert len(batch.fetch_itch.PUBLIC_SAMPLE_DAYS) == 15
+    assert batch.fetch_itch.tape_url("10182019").endswith("/S101819-v50.txt.gz")
+    assert batch.fetch_itch.tape_url("12082025").endswith("/S120825-v50.txt.gz")
+    assert batch.fetch_itch.tape_url("12302019").endswith("/12302019.NASDAQ_ITCH50.gz")
+    assert batch.fetch_itch.tape_url("12082025", "https://mirror.invalid/") == (
+        "https://mirror.invalid/S120825-v50.txt.gz"
+    )
+    assert set(batch.parse_days("all")).isdisjoint(batch.fetch_itch.UNAVAILABLE_SAMPLE_DAYS)
+    assert batch.parse_days("01302018,12082025") == ["01302018", "12082025"]
+    assert "11282025" not in batch.parse_days("all")
 
 
 def _framed(body: bytes) -> bytes:
@@ -64,6 +78,49 @@ def _pre_open_tape(symbol: str = "AAPL") -> bytes:
     """A valid slice whose prefix ends before the regular session opens."""
     ts = 34_199_000_000_000
     return b"".join([_system_event(b"O", ts - 2), _directory(7, symbol, ts - 1), _system_event(b"Q", ts)])
+
+
+def test_ranged_fetch_matches_serial_slices_and_preserves_gzip_hashes(tmp_path, monkeypatch):
+    import itch_transport
+
+    payload = gzip.compress(_tape())
+    monkeypatch.setattr(batch.fetch_itch.urllib.request, "urlopen", lambda *a, **kw: io.BytesIO(payload))
+    serial = batch.fetch_itch.fetch(day=DAYS[0], symbols={"AAPL"}, out_root=tmp_path / "serial", log=lambda _: None)
+    seen = []
+    cleaned = []
+    url = batch.fetch_itch.tape_url(DAYS[0])
+    source = itch_transport.SourceIdentity(url, url, len(payload), '"fixed"', None)
+    monkeypatch.setattr(itch_transport, "probe_source", lambda url, **kw: source)
+
+    def ranges(url, cache_dir, *, source, workers, log):
+        seen.append((url, cache_dir, workers))
+        for i in range(0, len(payload), 17):
+            yield payload[i:i + 17]
+
+    monkeypatch.setattr(itch_transport, "iter_cached_ranges", ranges)
+    monkeypatch.setattr(itch_transport, "cleanup_cached_ranges", lambda cache, source: cleaned.append((cache, source)))
+    cache = tmp_path / "cache"
+    ranged = batch.fetch_itch.fetch(
+        day=DAYS[0], symbols={"AAPL"}, out_root=tmp_path / "ranged",
+        download_workers=4, download_cache=cache, log=lambda _: None,
+    )
+    assert ranged["symbols"] == serial["symbols"]
+    assert ranged["gz_sha256"] == serial["gz_sha256"] == hashlib.sha256(payload).hexdigest()
+    assert ranged["gz_md5"] == hashlib.md5(payload, usedforsecurity=False).hexdigest()
+    assert ranged["gzip_stream_complete"] and ranged["download_workers"] == 4
+    assert seen == [(batch.fetch_itch.tape_url(DAYS[0]), cache, 4)]
+    assert cleaned == [(cache, source)]
+
+
+def test_byte_cap_stays_serial_even_with_range_workers_requested(tmp_path, monkeypatch):
+    payload = gzip.compress(_tape())
+    monkeypatch.setattr(batch.fetch_itch.urllib.request, "urlopen", lambda *a, **kw: io.BytesIO(payload))
+    result = batch.fetch_itch.fetch(
+        day=DAYS[0], symbols={"AAPL"}, out_root=tmp_path,
+        download_workers=4, max_gz_bytes=32, log=lambda _: None,
+    )
+    assert result["gz_bytes_fetched"] == 32
+    assert result["download_workers"] == 1 and result["range_limited"]
 
 
 def _install_urlopen(
@@ -122,6 +179,7 @@ def test_two_days_stream_slice_and_run_existing_e1_to_e6_offline(tmp_path: Path,
         source, errors = batch.validate_fetch_manifest(day, ["AAPL"], out_dir, max_gz_bytes=None)
         assert errors == [] and source is not None
         assert source["gzip_stream_complete"] is True
+        assert [event["code"] for event in source["session_events"]] == ["O", "Q"]
         result = json.loads((results_dir / day / batch.RESEARCH_MANIFEST_NAME).read_text())
         assert result["status"] == "completed"
         assert result["pipeline"]["experiments"] == ["E1-E4", "E5", "E6"]

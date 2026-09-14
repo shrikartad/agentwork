@@ -1,0 +1,271 @@
+{
+  "checked_at_utc": "2026-09-14T11:46:36.881885+00:00",
+  "directory_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/",
+  "selection_rule": "All named full-session gzip days from 2019 through 2025 in the official directory; exclude the 2025-11-28 half-session. Dates selected by availability before inspecting research outcomes.",
+  "full_session_count": 15,
+  "compressed_bytes": 97129873038,
+  "selected": [
+    {
+      "day": "01302019",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/01302019.NASDAQ_ITCH50.gz",
+      "http_status": 200,
+      "compressed_bytes": 4764426091,
+      "last_modified": "Thu, 31 Jan 2019 05:18:15 GMT",
+      "replacement": false
+    },
+    {
+      "day": "03272019",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/03272019.NASDAQ_ITCH50.gz",
+      "http_status": 200,
+      "compressed_bytes": 5510131732,
+      "last_modified": "Thu, 28 Mar 2019 18:26:55 GMT",
+      "replacement": false
+    },
+    {
+      "day": "07302019",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/07302019.NASDAQ_ITCH50.gz",
+      "http_status": 200,
+      "compressed_bytes": 3662140094,
+      "last_modified": "Wed, 31 Jul 2019 04:15:40 GMT",
+      "replacement": false
+    },
+    {
+      "day": "08302019",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/08302019.NASDAQ_ITCH50.gz",
+      "http_status": 200,
+      "compressed_bytes": 4075649457,
+      "last_modified": "Sat, 31 Aug 2019 04:25:46 GMT",
+      "replacement": false
+    },
+    {
+      "day": "10182019",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/S101819-v50.txt.gz",
+      "http_status": 200,
+      "compressed_bytes": 3951201663,
+      "last_modified": "Sat, 19 Oct 2019 04:15:09 GMT",
+      "replacement": true,
+      "prefix_validation": {
+        "compressed_prefix_bytes": 65536,
+        "framed_messages_checked": 5812,
+        "message_types": [
+          "H",
+          "R",
+          "S",
+          "Y"
+        ],
+        "format": "length-prefixed ITCH 5.0"
+      }
+    },
+    {
+      "day": "10302019",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/10302019.NASDAQ_ITCH50.gz",
+      "http_status": 200,
+      "compressed_bytes": 3872931242,
+      "last_modified": "Thu, 31 Oct 2019 04:14:57 GMT",
+      "replacement": false
+    },
+    {
+      "day": "12302019",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/12302019.NASDAQ_ITCH50.gz",
+      "http_status": 200,
+      "compressed_bytes": 3524013057,
+      "last_modified": "Tue, 31 Dec 2019 05:13:48 GMT",
+      "replacement": false
+    },
+    {
+      "day": "01302020",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/01302020.NASDAQ_ITCH50.gz",
+      "http_status": 200,
+      "compressed_bytes": 5597158940,
+      "last_modified": "Fri, 31 Jan 2020 05:18:45 GMT",
+      "replacement": false
+    },
+    {
+      "day": "07132021",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/S071321-v50.txt.gz",
+      "http_status": 200,
+      "compressed_bytes": 5996745270,
+      "last_modified": "Wed, 14 Jul 2021 00:13:27 GMT",
+      "replacement": true,
+      "prefix_validation": {
+        "compressed_prefix_bytes": 65536,
+        "framed_messages_checked": 5902,
+        "message_types": [
+          "H",
+          "R",
+          "S",
+          "Y"
+        ],
+        "format": "length-prefixed ITCH 5.0"
+      }
+    },
+    {
+      "day": "08132021",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/S081321-v50.txt.gz",
+      "http_status": 200,
+      "compressed_bytes": 4889328604,
+      "last_modified": "Sat, 14 Aug 2021 00:16:39 GMT",
+      "replacement": true,
+      "prefix_validation": {
+        "compressed_prefix_bytes": 65536,
+        "framed_messages_checked": 5884,
+        "message_types": [
+          "H",
+          "R",
+          "S",
+          "Y"
+        ],
+        "format": "length-prefixed ITCH 5.0"
+      }
+    },
+    {
+      "day": "12082025",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/S120825-v50.txt.gz",
+      "http_status": 200,
+      "compressed_bytes": 8775891119,
+      "last_modified": "Wed, 05 Aug 2026 15:07:33 GMT",
+      "replacement": true,
+      "prefix_validation": {
+        "compressed_prefix_bytes": 65536,
+        "framed_messages_checked": 5924,
+        "message_types": [
+          "H",
+          "R",
+          "S",
+          "Y"
+        ],
+        "format": "length-prefixed ITCH 5.0"
+      }
+    },
+    {
+      "day": "12092025",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/S120925-v50.txt.gz",
+      "http_status": 200,
+      "compressed_bytes": 7929915419,
+      "last_modified": "Wed, 05 Aug 2026 15:13:43 GMT",
+      "replacement": true,
+      "prefix_validation": {
+        "compressed_prefix_bytes": 65536,
+        "framed_messages_checked": 5951,
+        "message_types": [
+          "H",
+          "R",
+          "S",
+          "Y"
+        ],
+        "format": "length-prefixed ITCH 5.0"
+      }
+    },
+    {
+      "day": "12102025",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/S121025-v50.txt.gz",
+      "http_status": 200,
+      "compressed_bytes": 11557662295,
+      "last_modified": "Wed, 05 Aug 2026 15:30:47 GMT",
+      "replacement": true,
+      "prefix_validation": {
+        "compressed_prefix_bytes": 65536,
+        "framed_messages_checked": 5870,
+        "message_types": [
+          "H",
+          "R",
+          "S",
+          "Y"
+        ],
+        "format": "length-prefixed ITCH 5.0"
+      }
+    },
+    {
+      "day": "12112025",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/S121125-v50.txt.gz",
+      "http_status": 200,
+      "compressed_bytes": 10471034001,
+      "last_modified": "Wed, 05 Aug 2026 15:40:28 GMT",
+      "replacement": true,
+      "prefix_validation": {
+        "compressed_prefix_bytes": 65536,
+        "framed_messages_checked": 5960,
+        "message_types": [
+          "H",
+          "R",
+          "S",
+          "Y"
+        ],
+        "format": "length-prefixed ITCH 5.0"
+      }
+    },
+    {
+      "day": "12122025",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/S121225-v50.txt.gz",
+      "http_status": 200,
+      "compressed_bytes": 12551644054,
+      "last_modified": "Wed, 05 Aug 2026 15:59:11 GMT",
+      "replacement": true,
+      "prefix_validation": {
+        "compressed_prefix_bytes": 65536,
+        "framed_messages_checked": 5985,
+        "message_types": [
+          "H",
+          "R",
+          "S",
+          "Y"
+        ],
+        "format": "length-prefixed ITCH 5.0"
+      }
+    }
+  ],
+  "unavailable_original_dates": [
+    {
+      "day": "01302018",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/01302018.NASDAQ_ITCH50.gz",
+      "http_status": 404,
+      "directory_evidence": "Only .gz.md5sum entry remains; full .gz request returns 404."
+    },
+    {
+      "day": "03292018",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/03292018.NASDAQ_ITCH50.gz",
+      "http_status": 404,
+      "directory_evidence": "Only .gz.md5sum entry remains; full .gz request returns 404."
+    },
+    {
+      "day": "05302018",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/05302018.NASDAQ_ITCH50.gz",
+      "http_status": 404,
+      "directory_evidence": "Only .gz.md5sum entry remains; full .gz request returns 404."
+    },
+    {
+      "day": "05302019",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/05302019.NASDAQ_ITCH50.gz",
+      "http_status": 404,
+      "directory_evidence": "Only .gz.md5sum entry remains; full .gz request returns 404."
+    },
+    {
+      "day": "07302018",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/07302018.NASDAQ_ITCH50.gz",
+      "http_status": 404,
+      "directory_evidence": "Only .gz.md5sum entry remains; full .gz request returns 404."
+    },
+    {
+      "day": "08302018",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/08302018.NASDAQ_ITCH50.gz",
+      "http_status": 404,
+      "directory_evidence": "Only .gz.md5sum entry remains; full .gz request returns 404."
+    },
+    {
+      "day": "10302018",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/10302018.NASDAQ_ITCH50.gz",
+      "http_status": 404,
+      "directory_evidence": "Only .gz.md5sum entry remains; full .gz request returns 404."
+    },
+    {
+      "day": "12282018",
+      "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/12282018.NASDAQ_ITCH50.gz",
+      "http_status": 404,
+      "directory_evidence": "Only .gz.md5sum entry remains; full .gz request returns 404."
+    }
+  ],
+  "limitations": [
+    "Replacement dates span different market years and are not a random market-day sample.",
+    "A prefix-format check is not full-session completion; research manifests separately prove gzip EOF and actual rows."
+  ]
+}

@@ -7,6 +7,21 @@
 
 ## Current status — remaining Person-B implementation complete
 
+### Full-campaign execution update (2026-09-14)
+
+The user requested execution of both outstanding research tasks. E7 is running
+the full protocol from a fresh policy cache. The ITCH source audit corrected the
+old 15-date list: eight full gzip URLs return 404 although checksum stubs remain.
+The replacement cohort contains 15 available full sessions, selected before
+outcomes, totaling 97.13 GB. `docs/results/multi_day/README.md` records all
+substitutions and the fixed-session exclusion of the 2025-11-28 half-day.
+
+`--download-workers 4` enables bounded, identity-pinned HTTP Range requests with
+verified, resumable compressed-part caches; byte-capped smoke behavior is
+unchanged. Focused transport/catalogue/parser tests: **41 passed / 1 local-tape
+skip**; scoped Ruff passes. Full-session and E7 results remain in progress until
+their generated reports have been inspected. No new superiority claim is made.
+
 New commits use `ShrikarT <132975062+ShrikarT@users.noreply.github.com>` as both
 author and committer. Imported upstream history is preserved. Milestones were
 pushed to `thelema`; no upstream PR was opened or modified.
@@ -82,7 +97,7 @@ messages, with **zero regular-session rows**. They are partial transport checks,
 not full-day validation or performance evidence; data and smoke outputs remain
 gitignored.
 
-**Still outstanding:** full multi-day statistical runs across the 15 catalogued
+**Earlier handoff (execution now underway):** full multi-day statistical runs across the 15 catalogued
 dates, about 3.5 GB compressed per full day, depend on available bandwidth. The
 historical local bottleneck was about 300 KB/s; that is not a speed claim for
 this workspace. Existing full-day and fairness reports were not regenerated;

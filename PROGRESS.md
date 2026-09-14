@@ -5,6 +5,13 @@ This authorized working copy preserves upstream Nexus-LOB PR #19 at
 `69ae5af8faeaaf6694630cddc2c44b6ce0096ca6` and adds the remaining Person-B implementation.
 No upstream PR was opened or modified by this follow-up.
 
+**Execution update:** the full tape campaign and fresh-cache E7 study are now
+running. Eight original tape URLs return 404; the corrected cohort uses 15 actual
+full-session sources (seven retained, eight explicitly substituted), totaling
+97.13 GB compressed. Source selection and reproducible commands are documented
+in `docs/results/multi_day/README.md`. Neither URL availability nor partial
+downloads count as completed statistical research.
+
 **Current verification:** Python 3.12.3 on Linux, **274 passed / 1 skipped** in
 `python_quant/tests`; **8 passed** in `bindings/tests`; **5/5 CTest** tests passed.
 The skip requires a full local ITCH tape. With engine import disabled, the same

@@ -283,3 +283,12 @@ Exact shipped API: **`docs/work_package_b_phases_2_4.md §2.2`** (frozen). Signa
   live smoke had zero regular-session rows and is not statistical evidence.
   Full multi-day runs and regeneration of historical fairness CIs remain pending;
   no new execution-superiority claim is made. Current handoff: `progress_b.md`.
+
+- **2026-09-14 — Full campaign execution initiated.** The live Nasdaq directory
+  disproved the earlier "15 verified" availability assumption: eight entries
+  retain checksums only and their full tapes return 404. The corrected cohort
+  uses the earliest 15 available dated full-session files, with eight explicit
+  substitutions (97.13 GB compressed); half-day 2025-11-28 is excluded. Source
+  audit: `docs/results/multi_day/source_availability.json`. Bounded resumable
+  range transport is tested; full E1–E6 execution and fresh-cache E7 rerun are
+  underway, not yet claimed complete.

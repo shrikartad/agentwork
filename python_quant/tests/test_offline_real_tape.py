@@ -152,7 +152,8 @@ def test_public_sample_days_catalogue() -> None:
         assert len(d) == 8 and d.isdigit()
         url = fetch.tape_url(d)
         assert url.startswith("https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/")
-        assert url.endswith(f"{d}.NASDAQ_ITCH50.gz")
+        assert url.endswith(fetch.PUBLIC_SAMPLE_FILES[d])
+        assert url.endswith(".gz")
 
 
 @pytest.mark.skipif(not _TAPE.exists(), reason=f"real tape not fetched: {_TAPE} (run scripts/fetch_itch.py)")

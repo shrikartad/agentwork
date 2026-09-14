@@ -124,6 +124,14 @@ training · W7-8 profiling, dashboard, benchmarks, write-up.
 **Person-B follow-up:** working branch `hoplite/kranioi-df83c5d6` in the authorized
 `shrikartad/thelema` copy, based on upstream PR #19 head `69ae5af`.
 
+**Campaign execution started 2026-09-14:** full E7 retraining/evaluation uses a
+fresh cache. The live ITCH preflight found eight old catalogue entries have only
+checksum stubs, not downloadable tapes. The corrected 15-full-session cohort
+retains seven dates and substitutes eight available files from the same Nasdaq
+directory (97.13 GB compressed); see `docs/results/multi_day/README.md` and its
+source audit. Resumable, identity-pinned Range downloads address the slow
+single-stream path. Full research results are not yet reported as complete.
+
 - Empirical `vwap` now uses the forecast volume over the next episode step. Explicit
   profiles override `env.volume_profile`; no-profile legacy actions are unchanged.
   Only prior-session forecasts are appropriate; child sizing remains the env's job.
@@ -317,6 +325,8 @@ This is the Person A ↔ Person B integration seam.
 
 **Current Person-B next steps:** run the full 15-day tape campaign when bandwidth
 permits, then regenerate and review statistical reports under the current code.
+These two execution tasks are now active; source substitutions and actual
+completion are tracked separately from catalogue availability.
 Re-run the fair seeded evaluation before replacing its historical CIs; this
 follow-up changed the resampling unit and corrected initial drawdown accounting.
 The original implementation checklist below is retained as dated history.

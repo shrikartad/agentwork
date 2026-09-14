@@ -69,7 +69,7 @@ def parse_days(value: str) -> list[str]:
     if not raw:
         raise argparse.ArgumentTypeError("--days must be a comma-separated public sample date list or 'all'")
 
-    known = set(fetch_itch.PUBLIC_SAMPLE_DAYS)
+    known = set(fetch_itch.PUBLIC_SAMPLE_DAYS) | set(fetch_itch.UNAVAILABLE_SAMPLE_DAYS)
     days: list[str] = []
     for item in raw.split(","):
         day = item.strip()
@@ -270,6 +270,7 @@ def _coverage(manifest: dict[str, Any]) -> dict[str, Any]:
         "gz_bytes_fetched": manifest.get("gz_bytes_fetched"),
         "gzip_stream_complete": manifest.get("gzip_stream_complete"),
         "last_tape_ts_ns": manifest.get("last_tape_ts_ns"),
+        "session_events": manifest.get("session_events", []),
     }
 
 
@@ -287,6 +288,7 @@ def fetch_and_promote(
     *,
     max_gz_bytes: int | None,
     base: str,
+    download_workers: int = 1,
     fetcher: Callable[..., dict[str, Any]] | None = None,
     log: Callable[[str], None] = print,
 ) -> dict[str, Any]:
@@ -303,6 +305,8 @@ def fetch_and_promote(
             out_root=staging_root,
             base=base,
             max_gz_bytes=max_gz_bytes,
+            download_workers=download_workers,
+            download_cache=out_dir / ".downloads" / day,
             log=log,
         )
         manifest, errors = validate_fetch_manifest(
@@ -789,6 +793,7 @@ def run_batch(
     out_dir: Path,
     results_dir: Path,
     max_gz_bytes: int | None = None,
+    download_workers: int = 1,
     skip_existing: bool = False,
     base: str = fetch_itch.DEFAULT_BASE,
     fetcher: Callable[..., dict[str, Any]] | None = None,
@@ -805,12 +810,15 @@ def run_batch(
         raise ValueError("at least one day is required")
     if not symbols:
         raise ValueError("at least one symbol is required")
+    if download_workers not in (1, 2, 3, 4):
+        raise ValueError("download_workers must be between 1 and 4")
     results_dir.mkdir(parents=True, exist_ok=True)
     batch = _load_batch_manifest(results_dir / BATCH_MANIFEST_NAME)
     batch["latest_request"] = {
         "days": list(days),
         "symbols": list(symbols),
         "max_gz_bytes": max_gz_bytes,
+        "download_workers": download_workers,
         "base": base,
         "skip_existing": skip_existing,
     }
@@ -835,7 +843,8 @@ def run_batch(
                 )
                 _write_progress_and_summary(batch, results_dir)
                 source_manifest = fetch_and_promote(
-                    day, symbols, out_dir, max_gz_bytes=max_gz_bytes, base=base, fetcher=fetcher, log=log
+                    day, symbols, out_dir, max_gz_bytes=max_gz_bytes, base=base,
+                    download_workers=download_workers, fetcher=fetcher, log=log
                 )
                 source_state = "slices_downloaded"
             else:
@@ -919,6 +928,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--days", required=True, help="comma-separated PUBLIC_SAMPLE_DAYS dates, or 'all'")
     parser.add_argument("--symbols", default="AAPL,QQQ", help="comma-separated tickers (default: AAPL,QQQ)")
     parser.add_argument("--max-gz-bytes", type=_positive_int, default=None, help="bounded GZIP prefix; always labelled partial")
+    parser.add_argument("--download-workers", type=int, choices=range(1, 5), default=1,
+                        help="full-tape range workers (2–4 enable resumable compressed-byte caching)")
     parser.add_argument("--out-dir", type=Path, default=Path("data/itch"), help="source slice root (default: data/itch)")
     parser.add_argument(
         "--results-dir", type=Path, default=Path("docs/results/multi_day"),
@@ -951,6 +962,7 @@ def main(argv: list[str] | None = None) -> int:
         out_dir=args.out_dir,
         results_dir=args.results_dir,
         max_gz_bytes=args.max_gz_bytes,
+        download_workers=args.download_workers,
         skip_existing=args.skip_existing,
         base=args.base,
     )
