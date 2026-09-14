@@ -165,7 +165,7 @@ def render_markdown(res: dict) -> str:
         "",
         (
             "`Δ` is the **paired** per-episode difference `baseline − PPO` on identical seeded tapes "
-            "(positive = PPO better) with a block-bootstrap 95% CI; `sig` counts training seeds whose CI "
+            "(positive = PPO better) with a whole-seed-family bootstrap 95% CI; `sig` counts training seeds whose CI "
             "excludes 0 in PPO's favour / against it."
         ),
         "",
@@ -182,7 +182,10 @@ def render_markdown(res: dict) -> str:
             sig_b = sum(1 for d in pr["vs_best"] if d["lo"] > 0)
             sig_w = sum(1 for d in pr["vs_best"] if d["hi"] < 0)
             dv = np.mean([d["mean"] for d in pr["vs_vwap"]])
-            pv = np.mean([d["pct_vs_baseline"] for d in pr["vs_vwap"]])
+            percentages = [d["pct_vs_baseline"] for d in pr["vs_vwap"]]
+            pv = (f"{np.mean(percentages):+.1f}%"
+                  if percentages and all(v is not None and np.isfinite(v) for v in percentages)
+                  else "n/a")
             comp = mr["per_metric"]["completion"][r]["ppo_pooled_mean"]
             fr = mr["per_metric"]["fill_rate"][r]["ppo_pooled_mean"]
             mdd = mr["per_metric"]["mdd_ticks"][r]["ppo_pooled_mean"]
@@ -191,7 +194,7 @@ def render_markdown(res: dict) -> str:
             lines.append(
                 f"| {r} | {pm['ppo_pooled_mean']:.3f} ± {pm['ppo_seed_std']:.3f} | "
                 f"{pr['best_baseline']} {pr['best_baseline_mean']:.3f} | {deltas} | {sig_b} / {sig_w} | "
-                f"{dv:+.3f} bps ({pv:+.1f}%) | {comp:.3f} | {fr:.3f} | {mdd:.2f} ± {mdd_std:.2f} | {mv:+.3f} |"
+                f"{dv:+.3f} bps ({pv}) | {comp:.3f} | {fr:.3f} | {mdd:.2f} ± {mdd_std:.2f} | {mv:+.3f} |"
             )
         lines += ["", "Baselines (shortfall_bps, mean [95% CI]):", ""]
         regimes = list(mr["per_metric"]["shortfall_bps"].keys())
