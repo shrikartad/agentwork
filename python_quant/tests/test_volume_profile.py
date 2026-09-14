@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import numpy as np
 import pytest
-
 from nexus_quant.baselines import policy_action, run_episode, volume_curve_target
 from nexus_quant.envs.order_book_env import OrderBookEnv
 from nexus_quant.execution.volume_profile import (
@@ -164,3 +162,104 @@ def test_baselines_volume_curve_integration():
     # Both successfully executed
     assert res_front.filled > 0
     assert res_flat.filled > 0
+
+
+@pytest.mark.parametrize("last_sz", [0, 1, 60, 119, 120, 240])
+@pytest.mark.parametrize("step", [0, 1, 31, 32, 33, 39, 40])
+def test_vwap_without_profile_preserves_legacy_action(monkeypatch, last_sz, step):
+    env = OrderBookEnv(horizon=40, seed=42)
+    env.reset(seed=42)
+    env.t = step
+    state = dict(env.book.view())
+    state["last_trade_sz"] = last_sz
+    monkeypatch.setattr(env.book, "view", lambda: state)
+    expected = -1.0 if step / 40 > 0.8 else 0.35 - min(1.0, last_sz / 120.0) * 0.9
+
+    assert policy_action("vwap", env) == expected
+    env.volume_profile = None
+    assert policy_action("vwap", env, volume_profile=None) == expected
+
+
+def test_vwap_empirical_volume_scales_each_bucket():
+    env = OrderBookEnv(horizon=4, seed=42)
+    env.reset(seed=42)
+    profile = VolumeProfile(symbol="AAPL", bucket_weights=[8, 1, 1, 0])
+    actions = []
+    for step in range(env.horizon):
+        env.t = step
+        actions.append(policy_action("vwap", env, volume_profile=profile))
+
+    assert actions == pytest.approx([-0.55, -0.01, -0.01, 0.35])
+    assert actions[0] < actions[1] < actions[-1]
+
+
+def test_vwap_empirical_step_can_span_bucket_boundaries():
+    env = OrderBookEnv(horizon=3, seed=42)
+    env.reset(seed=42)
+    profile = VolumeProfile(symbol="AAPL", bucket_weights=[1, 3])
+    actions = []
+    for step in range(env.horizon):
+        env.t = step
+        actions.append(policy_action("vwap", env, volume_profile=profile))
+
+    assert actions == pytest.approx([-0.1, -0.55, -0.55])
+
+
+def test_vwap_profile_dispatch_and_explicit_precedence():
+    env = OrderBookEnv(horizon=40, seed=42)
+    env.reset(seed=42)
+    front = VolumeProfile(symbol="AAPL", bucket_weights=[9, 0, 0, 1])
+    back = VolumeProfile(symbol="AAPL", bucket_weights=[0, 0, 1, 9])
+    explicit_front = policy_action("vwap", env, volume_profile=front)
+    env.volume_profile = front
+    assert policy_action("vwap", env) == explicit_front
+    assert policy_action("vwap", env, volume_profile=back) > explicit_front
+    env.volume_profile = back
+    assert policy_action("vwap", env, volume_profile=front) == explicit_front
+
+
+@pytest.mark.parametrize("seed", [7, 42, 101])
+@pytest.mark.parametrize("horizon", [7, 40])
+def test_vwap_empirical_actions_are_valid_and_change_execution(seed, horizon):
+    forecaster = EmpiricalVolumeForecaster(n_buckets=4)
+    forecaster.add_daily_volume("AAPL", "2019-12-30", [5, 5, 20, 70])
+    profile = forecaster.forecast("AAPL", as_of_date="2020-01-02")
+    trajectories = []
+    for prof in (None, profile):
+        env = OrderBookEnv(horizon=horizon, seed=seed)
+        env.reset(seed=seed)
+        actions, execution = [], []
+        while True:
+            action = policy_action("vwap", env, volume_profile=prof)
+            assert np.isfinite(action)
+            assert env.action_space.contains(np.asarray([action], dtype=np.float32))
+            actions.append(action)
+            _, _, terminated, truncated, info = env.step(action)
+            execution.append((env.inventory, info["mode"], info["action_ticks"]))
+            if terminated or truncated:
+                break
+        assert 1 <= len(actions) <= horizon
+        assert sum(sz for _, _, sz in env.fills) + env.inventory == env.inventory0
+        trajectories.append((actions, execution))
+
+    assert trajectories[0][0] != trajectories[1][0]
+    assert trajectories[0][1] != trajectories[1][1]
+
+
+def test_run_episode_vwap_passes_empirical_profile():
+    profile = VolumeProfile(symbol="AAPL", bucket_weights=[0, 0, 1, 9])
+    explicit_env = OrderBookEnv(seed=42)
+    attached_env = OrderBookEnv(seed=42)
+    attached_env.volume_profile = profile
+    explicit = run_episode(explicit_env, "vwap", seed=42, volume_profile=profile)
+    attached = run_episode(attached_env, "vwap", seed=42)
+    legacy = run_episode(OrderBookEnv(seed=42), "vwap", seed=42)
+
+    assert explicit == attached
+    assert explicit != legacy
+
+
+@pytest.mark.parametrize("weights", [[float("nan"), 1], [float("inf"), 1], [[1, 2]]])
+def test_volume_profile_rejects_nonfinite_or_nested_weights(weights):
+    with pytest.raises(ValueError, match="finite one-dimensional"):
+        VolumeProfile(symbol="AAPL", bucket_weights=weights)

@@ -3,7 +3,7 @@
 Two families:
 
 * the Phase-1c heuristics ``twap`` / ``vwap`` / ``pov`` / ``passive``
-  (kept byte-identical — they are the historical reference);
+  (kept byte-identical without an empirical volume profile);
 * the Phase-3 **fair baselines** (plan_2.md §6 item 4): ``schedule_twap``
   (volume-curve schedule with catch-up), ``adaptive_pov`` (participation
   reacting to spread / flow / regime), ``is_aware`` (implementation-shortfall
@@ -69,6 +69,13 @@ def policy_action(
     *,
     volume_profile: VolumeProfile | None = None,
 ) -> float:
+    """Choose execution aggression; profiles must be estimated from prior days.
+
+    Empirical VWAP scales aggression by the next step's forecast volume relative
+    to a uniform schedule. This uses a historical forecast, not future tape
+    prints; the environment still controls child size. An explicit profile takes
+    precedence over ``env.volume_profile``.
+    """
     s = env.book.view()
     spr = 2
     if int(s["bid_px"][0]) and int(s["ask_px"][0]):
@@ -78,7 +85,15 @@ def policy_action(
     if name == "twap":
         return -1.0 if t_frac > 0.72 else 0.12
     if name == "vwap":
-        vol = min(1.0, last_sz / 120.0)
+        prof = volume_profile if volume_profile is not None else getattr(env, "volume_profile", None)
+        if prof is None:
+            vol = min(1.0, last_sz / 120.0)
+        else:
+            step_volume = (
+                prof.cumulative_fraction((env.t + 1) / env.horizon)
+                - prof.cumulative_fraction(t_frac)
+            )
+            vol = min(1.0, max(0.0, step_volume * env.horizon))
         return -1.0 if t_frac > 0.8 else 0.35 - vol * 0.9
     if name == "pov":
         if spr <= 1 and t_frac > 0.25:

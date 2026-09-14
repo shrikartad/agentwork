@@ -38,11 +38,13 @@ class VolumeProfile:
         if not self.bucket_weights:
             raise ValueError("bucket_weights cannot be empty")
         weights = np.asarray(self.bucket_weights, dtype=np.float64)
+        if weights.ndim != 1 or not np.all(np.isfinite(weights)):
+            raise ValueError("bucket_weights must be a finite one-dimensional sequence")
         if np.any(weights < 0):
             raise ValueError("bucket_weights must be non-negative")
         total = float(np.sum(weights))
-        if total <= 0:
-            raise ValueError("sum of bucket_weights must be positive")
+        if not np.isfinite(total) or total <= 0:
+            raise ValueError("sum of bucket_weights must be positive and finite")
         # Normalize strictly to sum to 1.0
         normalized = (weights / total).tolist()
         self.bucket_weights = [float(w) for w in normalized]
