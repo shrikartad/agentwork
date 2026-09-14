@@ -121,8 +121,14 @@ training · W7-8 profiling, dashboard, benchmarks, write-up.
 
 ## 6. Status — latest verification 2026-09-14; dated implementation history below
 
-**Person-B follow-up:** working branch `hoplite/kranioi-df83c5d6` in the authorized
+**Person-B follow-up:** working branch `hoplite/paros-710e0625` in the authorized
 `shrikartad/thelema` copy, based on upstream PR #19 head `69ae5af`.
+
+**Campaign takeover:** E7 caches are now source/configuration/runtime/hash pinned,
+raw synthetic evaluation rows are retained, and fill/drawdown paired CIs are
+included in JSON and Markdown. Fresh-workspace verification: **297 passed /
+13 skipped** (native module and full local tape absent); scoped Ruff, compileall,
+and diff checks pass. These are harness results, not a completed research study.
 
 **Campaign execution started 2026-09-14:** full E7 retraining/evaluation uses a
 fresh cache. The live ITCH preflight found eight old catalogue entries have only
@@ -325,6 +331,8 @@ This is the Person A ↔ Person B integration seam.
 
 **Current Person-B next steps:** run the full 15-day tape campaign when bandwidth
 permits, then regenerate and review statistical reports under the current code.
+Continue on `hoplite/paros-710e0625`; use a verified E7 cache and do not substitute
+earlier training artifacts without matching their full provenance.
 These two execution tasks are now active; source substitutions and actual
 completion are tracked separately from catalogue availability.
 Re-run the fair seeded evaluation before replacing its historical CIs; this

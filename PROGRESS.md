@@ -1,9 +1,17 @@
 # Nexus-LOB — Progress Report
 
-**Status date:** 2026-09-14 · **Branch:** `hoplite/kranioi-df83c5d6` in `shrikartad/thelema`.
+**Status date:** 2026-09-14 · **Branch:** `hoplite/paros-710e0625` in `shrikartad/thelema`.
 This authorized working copy preserves upstream Nexus-LOB PR #19 at
 `69ae5af8faeaaf6694630cddc2c44b6ce0096ca6` and adds the remaining Person-B implementation.
 No upstream PR was opened or modified by this follow-up.
+
+**Takeover preparation verified:** E7 now rejects stale/unverified training caches,
+records source/runtime/policy provenance and raw-row hashes, and publishes paired
+fill/drawdown CIs with their reporting limitations. **297 tests passed / 13 skipped**
+in the fresh no-engine workspace; scoped Ruff, compileall, and diff checks pass.
+The full uncapped 2019-12-30 tape download has started; this is not yet a completed
+day or a regenerated fairness result. Earlier native-build evidence below remains
+historical and is not claimed as a new build.
 
 **Execution update:** the full tape campaign and fresh-cache E7 study are now
 running. Eight original tape URLs return 404; the corrected cohort uses 15 actual

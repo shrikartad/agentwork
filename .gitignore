@@ -44,6 +44,7 @@ env/
 .ipynb_checkpoints/
 
 # --- ML / RL training artifacts ---
+python_quant/artifacts/fairness/
 *.pt
 *.pth
 *.onnx

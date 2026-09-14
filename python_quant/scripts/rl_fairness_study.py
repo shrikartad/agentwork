@@ -32,9 +32,15 @@ Run (from repo root; ~10–20 min at the defaults on one core)::
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
+import platform
 import sys
+import tempfile
 import time
+from dataclasses import asdict
+from importlib.metadata import version
 from pathlib import Path
 
 import numpy as np
@@ -59,22 +65,97 @@ from nexus_quant.envs.regimes import (
     HOLDOUT_REGIMES,
     TRAIN_REGIME,
     regime_factories,
+    regime_kwargs,
 )
 
 MODES = ("novol", "volsym")
 METRICS = ("shortfall_bps", "vwap_slip_bps", "completion", "fill_rate", "mdd_ticks", "reward")
+PAIRED_METRICS = ("shortfall_bps", "vwap_slip_bps", "fill_rate", "mdd_ticks")
+EVAL_SEED0 = 0x5EED
+
+
+def _source_fingerprint() -> str:
+    paths = [Path(__file__), *sorted((_ROOT / "python_quant" / "nexus_quant").rglob("*.py"))]
+    digest = hashlib.sha256()
+    for path in paths:
+        digest.update(path.relative_to(_ROOT).as_posix().encode() + b"\0" + path.read_bytes() + b"\0")
+    return digest.hexdigest()
+
+
+def _runtime() -> dict:
+    return {"python": platform.python_version(), "numpy": np.__version__,
+            "gymnasium": version("gymnasium"), "book_backend": "StubBookAdapter"}
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _atomic_json(path: Path, value: dict) -> None:
+    text = json.dumps(value, indent=1, allow_nan=False) + "\n"
+    _atomic_text(path, text)
+
+
+def _atomic_text(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(name, path)
+    finally:
+        Path(name).unlink(missing_ok=True)
+
+
+def _validate_args(args: argparse.Namespace) -> None:
+    for name in ("iters", "episodes", "train_seeds", "episodes_per_seed", "n_boot"):
+        if getattr(args, name) < 1:
+            raise ValueError(f"{name} must be positive")
+    if args.eval_seeds < 2:
+        raise ValueError("eval_seeds must be at least 2 for seed-family confidence intervals")
+    if args.episodes_per_seed > 10_000:
+        raise ValueError("episodes_per_seed cannot exceed the 10,000-seed family spacing")
 
 
 def _train(mode: str, seed: int, iters: int, episodes: int, out_dir: Path) -> PPOPolicy:
     path = out_dir / f"policy_{mode}_seed{seed}.npz"
-    if path.exists():
-        return PPOPolicy.load(str(path))
-    factory = regime_factories((TRAIN_REGIME,), costs=True, vol_feature=(mode == "volsym"))[TRAIN_REGIME]
+    manifest_path = path.with_suffix(".json")
     cfg = PPOConfig(iterations=iters, episodes=episodes, epochs=4, eval_every=0,
                     seed=0xACE + seed, unit_seed=0x2717 + 100_000 * seed)
+    context = json.loads(json.dumps({
+        "schema_version": 1, "mode": mode, "training_seed": seed,
+        "ppo_config": asdict(cfg),
+        "env_kwargs": regime_kwargs(TRAIN_REGIME, costs=True, vol_feature=(mode == "volsym")),
+        "source_fingerprint": _source_fingerprint(), "runtime": _runtime(),
+    }))
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if (isinstance(manifest, dict) and manifest.get("context") == context
+                and manifest.get("sha256") == _sha256(path)):
+            policy = PPOPolicy.load(str(path))
+            if policy.obs_dim == (45 if mode == "volsym" else 44) and all(
+                np.isfinite(value).all() for value in policy.state_dict().values()
+            ):
+                print(f"  reused verified {path.name}")
+                return policy
+    except (OSError, ValueError, KeyError):
+        pass
+    factory = regime_factories((TRAIN_REGIME,), costs=True, vol_feature=(mode == "volsym"))[TRAIN_REGIME]
     t0 = time.time()
     policy, _ = train_ppo(factory, cfg)
-    policy.save(str(path))
+    if not all(np.isfinite(value).all() for value in policy.state_dict().values()):
+        raise ValueError("training produced non-finite policy parameters")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.stem}.", suffix=".npz", dir=out_dir)
+    os.close(fd)
+    try:
+        policy.save(temporary)
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+    _atomic_json(manifest_path, {"context": context, "sha256": _sha256(path)})
     print(f"  trained {mode} seed {seed}: {iters} iters in {time.time() - t0:.0f}s -> {path.name}")
     return policy
 
@@ -85,6 +166,7 @@ def _ci_dict(ci) -> dict:
 
 
 def run(args: argparse.Namespace) -> dict:
+    _validate_args(args)
     out_dir = Path(args.artifacts)
     out_dir.mkdir(parents=True, exist_ok=True)
     regimes_all = (TRAIN_REGIME, *HOLDOUT_REGIMES)
@@ -94,7 +176,11 @@ def run(args: argparse.Namespace) -> dict:
             "eval_seeds": args.eval_seeds, "episodes_per_seed": args.episodes_per_seed,
             "train_regime": TRAIN_REGIME, "holdout_regimes": list(HOLDOUT_REGIMES),
             "costs_on": True, "baselines": list(ALL_BASELINES),
+            "n_boot": args.n_boot, "eval_seed0": EVAL_SEED0,
+            "ci_method": "whole_seed_family_percentile_bootstrap",
+            "source_fingerprint": _source_fingerprint(), "runtime": _runtime(),
         },
+        "provenance": {},
         "modes": {},
     }
     for mode in MODES:
@@ -102,11 +188,20 @@ def run(args: argparse.Namespace) -> dict:
         vol = mode == "volsym"
         factories = regime_factories(regimes_all, costs=True, vol_feature=vol)
         policies = [_train(mode, s, args.iters, args.episodes, out_dir) for s in range(args.train_seeds)]
-        common = {"seeds": args.eval_seeds, "episodes_per_seed": args.episodes_per_seed}
+        common = {"seeds": args.eval_seeds, "episodes_per_seed": args.episodes_per_seed,
+                  "seed0": EVAL_SEED0}
         # every strategy runs the SAME seeded episodes once; all metrics derive from those rows
         base_eps = run_regime_episodes(None, factories, baselines=ALL_BASELINES, **common)
         agent_eps = [run_regime_episodes(pol, factories, agent_name="ppo", **common) for pol in policies]
-        mode_res: dict = {"per_metric": {}, "paired": {}}
+        rows_path = out_dir / f"episodes_{mode}.json"
+        _atomic_json(rows_path, {"config": result["config"], "mode": mode,
+                                 "baselines": base_eps, "ppo_seeds": agent_eps})
+        result["provenance"][mode] = {
+            "episode_rows_sha256": _sha256(rows_path),
+            "policies": [json.loads((out_dir / f"policy_{mode}_seed{s}.json").read_text(encoding="utf-8"))
+                         for s in range(args.train_seeds)],
+        }
+        mode_res: dict = {"per_metric": {}, "paired": {}, "paired_metrics": {}}
         for metric in METRICS:
             mode_res["per_metric"][metric] = {}
             for r in regimes_all:
@@ -131,15 +226,21 @@ def run(args: argparse.Namespace) -> dict:
         for r in regimes_all:
             bl = mode_res["per_metric"]["shortfall_bps"][r]["baselines"]
             best = min(bl, key=lambda b: bl[b]["mean"])
-            entry = {"best_baseline": best, "best_baseline_mean": bl[best]["mean"],
-                     "vwap_mean": bl["vwap"]["mean"], "vs_best": [], "vs_vwap": []}
-            for pol, ae in zip(policies, agent_eps):
-                merged = {r: {"ppo": ae[r]["ppo"], **base_eps[r]}}
-                for key, target in (("vs_best", best), ("vs_vwap", "vwap")):
-                    d = paired_difference_ci(pol, target, {r: factories[r]}, metric="shortfall_bps",
-                                             n_boot=args.n_boot, episodes=merged, **common)[r]
-                    entry[key].append(d)
-            mode_res["paired"][r] = entry
+            for metric in PAIRED_METRICS:
+                metric_bl = mode_res["per_metric"][metric][r]["baselines"]
+                entry = {"best_baseline": best, "best_baseline_mean": metric_bl[best]["mean"],
+                         "vwap_mean": metric_bl["vwap"]["mean"], "vs_best": [], "vs_vwap": []}
+                for pol, ae in zip(policies, agent_eps):
+                    merged = {r: {"ppo": ae[r]["ppo"], **base_eps[r]}}
+                    for key, target in (("vs_best", best), ("vs_vwap", "vwap")):
+                        d = paired_difference_ci(pol, target, {r: factories[r]}, metric=metric,
+                                                 n_boot=args.n_boot, episodes=merged, **common)[r]
+                        entry[key].append(d)
+                if metric == "shortfall_bps":
+                    mode_res["paired"][r] = entry
+                else:
+                    mode_res["paired_metrics"].setdefault(metric, {})[r] = entry
+            entry = mode_res["paired"][r]
             ppo_mean = mode_res["per_metric"]["shortfall_bps"][r]["ppo_pooled_mean"]
             sig = sum(1 for d in entry["vs_best"] if d["lo"] > 0)
             worse = sum(1 for d in entry["vs_best"] if d["hi"] < 0)
@@ -168,6 +269,16 @@ def render_markdown(res: dict) -> str:
             "(positive = PPO better) with a whole-seed-family bootstrap 95% CI; `sig` counts training seeds whose CI "
             "excludes 0 in PPO's favour / against it."
         ),
+        "",
+    ]
+    lines += [
+        ("Fill rate is the parent-order filled fraction (including terminal liquidation), not child-order fill probability. "
+        "Drawdown is the maximum loss from a prior peak of aggregate inventory PnL, including the initial zero. "
+        "Its historical `mdd_ticks` name denotes tick-valued PnL (ticks × shares), not a per-share price drawdown."),
+        "",
+        ("The best baseline is selected by mean shortfall on these evaluation episodes. Its paired CIs are "
+        "conditional on that selection, unadjusted for baseline selection or multiple comparisons; "
+        "counts of significant training seeds are descriptive, not independent replications."),
         "",
     ]
     for mode, mr in res["modes"].items():
@@ -208,6 +319,22 @@ def render_markdown(res: dict) -> str:
                 cells.append(f"{d['mean']:.3f} [{d['lo']:.3f},{d['hi']:.3f}]")
             lines.append(f"| {b} | " + " | ".join(cells) + " |")
         lines.append("")
+        for metric, label in (("fill_rate", "Parent-order fill fraction"), ("mdd_ticks", "Inventory-PnL drawdown")):
+            lines += [f"### {label} — whole-family 95% CIs", "",
+                      ("PPO entries and paired differences follow training-seed order. The comparator remains the "
+                       "shortfall-selected baseline; positive Δ means higher fill fraction or lower drawdown."), "",
+                      "| regime | PPO mean [95% CI] per training seed | baseline mean [95% CI] | paired Δ [95% CI] per training seed |",
+                      "|---|---|---|---|"]
+            for r, pm in mr["per_metric"][metric].items():
+                name = mr["paired"][r]["best_baseline"]
+                baseline = pm["baselines"][name]
+                cells = " ".join(f"{d['mean']:.4f} [{d['lo']:.4f},{d['hi']:.4f}]"
+                                 for d in pm.get("ppo_seeds", [])) or "not computed"
+                paired = mr.get("paired_metrics", {}).get(metric, {}).get(r, {}).get("vs_best", [])
+                deltas = " ".join(f"{d['mean']:+.4f} [{d['lo']:+.4f},{d['hi']:+.4f}]" for d in paired) or "not computed"
+                lines.append(f"| {r} | {cells} | {name} {baseline['mean']:.4f} "
+                             f"[{baseline['lo']:.4f},{baseline['hi']:.4f}] | {deltas} |")
+            lines.append("")
     return "\n".join(lines) + "\n"
 
 
@@ -226,13 +353,17 @@ def main(argv: list[str] | None = None) -> int:
     if args.quick:
         args.iters, args.train_seeds, args.eval_seeds, args.episodes_per_seed, args.n_boot = 40, 2, 2, 4, 200
         args.artifacts = str(Path(args.artifacts) / "quick")
+    try:
+        _validate_args(args)
+    except ValueError as exc:
+        ap.error(str(exc))
     t0 = time.time()
     res = run(args)
     res["config"]["wall_seconds"] = round(time.time() - t0, 1)
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(res, indent=1) + "\n")
+    _atomic_json(args.out, res)
     md = args.out.with_suffix(".md")
-    md.write_text(render_markdown(res))
+    _atomic_text(md, render_markdown(res))
     print(f"\nwrote {args.out} and {md} ({time.time() - t0:.0f}s)")
     return 0
 

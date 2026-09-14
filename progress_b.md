@@ -2,12 +2,28 @@
 
 **Updated:** 2026-09-14
 **Checkout:** Linux verification workspace; authorized destination `shrikartad/thelema`.
-**Branch:** `hoplite/kranioi-df83c5d6`.
+**Branch:** `hoplite/paros-710e0625` (campaign takeover from `hoplite/kranioi-df83c5d6`).
 **Upstream base:** Nexus-LOB PR #19, `69ae5af8faeaaf6694630cddc2c44b6ce0096ca6`.
 
 ## Current status — remaining Person-B implementation complete
 
 ### Full-campaign execution update (2026-09-14)
+
+**Takeover milestone:** E7 policy caches now verify the complete training
+configuration, environment knobs, executable-source fingerprint, runtime
+versions, and policy SHA-256 before reuse. Old or mismatched caches retrain;
+policy/report writes are atomic. Raw evaluation rows are retained in the ignored
+cache and hashed in the report. Paired CIs now reach the published JSON for
+market-VWAP slippage, fill fraction, and inventory-PnL drawdown, with explicit
+fill/drawdown CI tables in Markdown. Comparator selection and multiple-testing
+limitations are documented. The protocol rejects invalid family counts before
+training. No generated full-run result is claimed by this preparation milestone.
+
+Takeover verification: **297 Python tests passed / 13 skipped** without the native
+module or a full local tape; scoped Ruff, compileall, and diff checks pass. The
+native sources/ABI are untouched. Full 2019-12-30 transport is running uncapped;
+completed datasets/checkpoints from the previous workspace have not been assumed
+to exist in this fresh workspace.
 
 The user requested execution of both outstanding research tasks. E7 is running
 the full protocol from a fresh policy cache. The ITCH source audit corrected the
