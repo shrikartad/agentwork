@@ -1,0 +1,117 @@
+{
+  "completed_at_unix": 1789388532,
+  "coverage": {
+    "gz_bytes_fetched": 3524013057,
+    "gzip_stream_complete": true,
+    "is_full_day": true,
+    "kind": "full_day",
+    "last_tape_ts_ns": 72300000040070,
+    "max_gz_bytes_requested": null,
+    "range_limited": false,
+    "session_events": [
+      {
+        "code": "O",
+        "ts_ns": 11072057543747
+      },
+      {
+        "code": "S",
+        "ts_ns": 14400000198145
+      },
+      {
+        "code": "Q",
+        "ts_ns": 34200000075566
+      },
+      {
+        "code": "M",
+        "ts_ns": 57600000071785
+      },
+      {
+        "code": "E",
+        "ts_ns": 72000000019686
+      },
+      {
+        "code": "C",
+        "ts_ns": 72300000040070
+      }
+    ]
+  },
+  "day": "12302019",
+  "kind": "nexus-lob-itch-day-research",
+  "markdown": {
+    "file": "real_tape_12302019.md",
+    "sha256": "166c0978b2d2917eba8772dfd8a50e599b01b6b8878849d086c9395a197830f2"
+  },
+  "pipeline": {
+    "adverse_horizons_events": [
+      1,
+      5,
+      25
+    ],
+    "experiments": [
+      "E1-E4",
+      "E5",
+      "E6"
+    ],
+    "fill_horizons_events": [
+      10,
+      50,
+      100,
+      500,
+      1000,
+      5000
+    ],
+    "horizons": [
+      1,
+      5,
+      10,
+      25
+    ],
+    "n_boot": 200,
+    "pooled_cross_day_inference": false,
+    "regular_session_only": true,
+    "source_script": "python_quant/scripts/run_research.py",
+    "source_sha256": "42fd6e69dabf8f2d91d6961ca2a80c958985fb350d4d111ae9b9fdd0d8fbf202"
+  },
+  "requested_symbols": [
+    "AAPL",
+    "QQQ"
+  ],
+  "schema_version": 1,
+  "source": {
+    "gz_sha256": "ef03df46a27e6bda4dead017f84c2e3979df7211f02c7868b51d53fceb99c689",
+    "manifest_file": "manifest.json",
+    "manifest_sha256": "6650842f9a02ce2593324a35100b6c79d50e904afdf3d6f7017aa2534a6c9ce6",
+    "slices": {
+      "AAPL": {
+        "bytes": 46261380,
+        "file": "AAPL.itch",
+        "sha256": "50326efafe6d57529047e2687b25336f59c2714e4f7811e310dd914f2d34186a"
+      },
+      "QQQ": {
+        "bytes": 71020439,
+        "file": "QQQ.itch",
+        "sha256": "df0122722850c516994112cc6327addaac384976242c619235393c40aaf75bca"
+      }
+    },
+    "source_url": "https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/12302019.NASDAQ_ITCH50.gz"
+  },
+  "status": "completed",
+  "symbols": {
+    "AAPL": {
+      "e1_e4_rows": 28,
+      "e5_orders": 791477,
+      "e6_passive_fills": 46357,
+      "file": "real_tape_12302019_AAPL.json",
+      "regular_events": 1484259,
+      "sha256": "d56fb57f4273ad5ff7d6bfc07ea97e8b7d0730a49653004473228969015b0872"
+    },
+    "QQQ": {
+      "e1_e4_rows": 28,
+      "e5_orders": 1141142,
+      "e6_passive_fills": 17662,
+      "file": "real_tape_12302019_QQQ.json",
+      "regular_events": 2209131,
+      "sha256": "9f3237f033b8c689a46c3fac8ca9bc918425ad4b4c5f3d5107f746fef196dbb9"
+    }
+  }
+}

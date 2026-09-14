@@ -1,0 +1,58 @@
+{
+  "kind": "nexus-lob-itch-completed-day-handoff",
+  "day": "12302019",
+  "status": "verified_complete",
+  "executed_source_commit": "4b108622d9abb23794858eb534d0d642e3512f99",
+  "pipeline_source_sha256": "42fd6e69dabf8f2d91d6961ca2a80c958985fb350d4d111ae9b9fdd0d8fbf202",
+  "command": [
+    ".venv/bin/python",
+    "-u",
+    "python_quant/scripts/batch_research_itch.py",
+    "--days",
+    "12302019",
+    "--symbols",
+    "AAPL,QQQ",
+    "--download-workers",
+    "4",
+    "--skip-existing"
+  ],
+  "thread_limits": {
+    "OPENBLAS_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1"
+  },
+  "coverage": {
+    "compressed_byte_cap": null,
+    "regular_event_cap": null,
+    "symbols": [
+      "AAPL",
+      "QQQ"
+    ],
+    "full_gzip_eof": true,
+    "regular_session_open": "09:30",
+    "regular_session_close": "16:00"
+  },
+  "source_manifest": {
+    "file": "manifest.json",
+    "sha256": "6650842f9a02ce2593324a35100b6c79d50e904afdf3d6f7017aa2534a6c9ce6"
+  },
+  "research_manifest": {
+    "file": "research_manifest.json",
+    "sha256": "a400291c3525c46e2bfd44e360810eb78fcfec1e5b7e24bfb55c11fc735476d0"
+  },
+  "environment": {
+    "python": "3.12.3",
+    "numpy": "2.5.3"
+  },
+  "verification": {
+    "source_and_research_validators_passed": true,
+    "source_fingerprint_matches_recorded_git_commit": true,
+    "symbol_slice_and_report_hashes_verified": true,
+    "truncated_messages": 0,
+    "integrity_issues": 0,
+    "tracker_unknown_ids": 0
+  },
+  "scope": "Only this completed day is certified. E7 is a separate provisional study and is not evidence for these ITCH results.",
+  "reuse": "Compare independent compressed-source and per-symbol slice hashes with manifest.json. Preserve the independent fetch manifest separately: timestamps make its JSON hash differ even when slices match. The original manifest is included byte-for-byte to retain the exact research input identity. Keep source tapes private and do not replace recorded source fingerprints with a different checkout fingerprint.",
+  "publication_formatting": "Removed only the generated Markdown extra trailing blank line. Numeric results and source identities are unchanged; published Markdown/research-manifest hashes reflect this formatting normalization."
+}
