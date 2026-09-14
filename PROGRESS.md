@@ -1,8 +1,22 @@
 # Nexus-LOB — Progress Report
 
-**Status date:** 2026-09-14 · **Branch:** `main` (+ Person B branch `feature/person-b-part2` for Part 2 Phases 3–5, PR #19 pending review) · **Milestone:** C++ matching engine + pybind seam, Person B's ITCH/env/baselines/PPO/GRPO agent, Person A's Monte-Carlo VaR/CVaR risk engine (CPU-validated, CUDA blocked), interactive dashboard (subsystem 4/5), **and now the Part 2 quant research layer complete through Phase 5: a real NASDAQ ITCH day parsed/replayed/diff-tested against the C++ engine, E1–E6 microstructure results with CIs (`docs/RESEARCH.md`), and the RL slippage headline re-verified fairly and retired (`docs/results/rl_fairness.md`)**. This file is a plain-language
-snapshot for anyone (Person A or Person B) picking the project up; the authoritative,
-constantly-updated handoff doc is `CLAUDE.md`.
+**Status date:** 2026-09-14 · **Branch:** `hoplite/kranioi-df83c5d6` in `shrikartad/thelema`.
+This authorized working copy preserves upstream Nexus-LOB PR #19 at
+`69ae5af8faeaaf6694630cddc2c44b6ce0096ca6` and adds the remaining Person-B implementation.
+No upstream PR was opened or modified by this follow-up.
+
+**Current verification:** Python 3.12.3 on Linux, **274 passed / 1 skipped** in
+`python_quant/tests`; **8 passed** in `bindings/tests`; **5/5 CTest** tests passed.
+The skip requires a full local ITCH tape. With engine import disabled, the same
+Python suite has **262 passed / 13 skipped**, retaining the always-on stub/fake tests.
+Compileall, CI-scope Ruff, and `git diff --check` pass. Protected C++/CUDA/bindings
+sources and the 448-byte state ABI are unchanged.
+
+The empirical VWAP, E7 family-bootstrap, resumable batch, and Python adapter work
+is complete. The dated studies below are historical: neither the full multi-day
+campaign nor the published fairness study was rerun with the new code. This work
+makes **no new out-of-sample execution-superiority claim**. See `progress_b.md`
+for exact interfaces, limitations, and reproduction commands.
 
 > **2026-09-13 — Person B, Part 2 (plain language):** we downloaded a real NASDAQ order-by-order
 > tape (2019-12-30, AAPL + QQQ — 268 M messages), ran it through our parser and book with zero
@@ -20,9 +34,9 @@ constantly-updated handoff doc is `CLAUDE.md`.
 > and the **shared-memory ring + interactive dashboard** (subsystems 4 and 5) are built and operational.
 > Person B has landed the ITCH 5.0 streaming parser, replay engine, Gymnasium `OrderBookEnv`,
 > baselines, GRPO trainer, and the dynamic risk↔env inventory penalty.
-> All 152 pure-Python tests pass (6 skipped on Windows without local tape data / pybind module).
-> Part 2 Phases 0–5 are complete on `feature/person-b-part2` (PR #19). Remaining items are Person A's
-> CUDA kernel compile and hardware benchmarking.
+> Current test counts are in the 2026-09-14 verification above. The Part 2 implementation
+> is present, but full multi-day statistical validation, updated fairness reports,
+> and Person A's CUDA/hardware measurements remain separate work.
 
 ---
 
@@ -289,9 +303,25 @@ See `CLAUDE.md` §8 for the full table and the exact Windows build steps.
 6. ✅ **Interactive order-book dashboard** — done (`serve_dashboard.py`, shmem/file-ring decoding).
 7. ✅ **Part 2 Phases 0–5 quant research layer** — done (`docs/RESEARCH.md`, `run_all.py`, PR #19).
 8. ✅ **Dashboard Sanitization (Audit Priority 1)** — completed; retired +50.4% exploratory run labeled `Historical exploratory result — retired`, active fair study benchmark featured.
-9. ✅ **E7 Evaluation Metrics Completion (Audit Priority 2)** — completed; `fill_rate` (parent-order fill fraction) and `max_drawdown` (ticks) integrated into `evaluate._episode_rows` and `rl_fairness_study.py`; 10 hand-constructed tests in `test_e7_metrics.py`.
-10. ✅ **Empirical Volume Profiler (Audit Priority 3)** — completed; `VolumeProfile` + `EmpiricalVolumeForecaster` implemented in `nexus_quant/execution/volume_profile.py`, walk-forward leak-free, Laplace smoothing, integrated with `baselines.py` and schedule_twap; 7 tests in `test_volume_profile.py`.
-11. 🟡 **Multi-Day Real-Tape Validation (Audit Priority 4)** — partially complete / in progress; 12/30/2019 full day verified; 15 public NASDAQ sample dates catalogued in `fetch_itch.py` and tested in `test_offline_real_tape.py`; full multi-day E1–E6 downloads bounded by local network bandwidth (~300 KB/s; ~3.2h per 3.5GB file).
+9. ✅ **E7 confidence intervals** — `evaluate_regime_ci()` and `paired_difference_ci()` support
+   `fill_rate` and `mdd_ticks` alongside shortfall and market-VWAP slippage. Whole seed families
+   are resampled without cutting dependent episode blocks; at least two equally sized families
+   are required. Paired rows match by family and episode seed; higher fill rate and lower drawdown
+   count as improvements. Intervals contain their estimate, initial execution loss enters MDD,
+   and undefined relative percentages are `None` / `n/a`, not NaN or a superiority claim.
+10. ✅ **Empirical VWAP conditioning** — an explicit `VolumeProfile` overrides
+    `env.volume_profile`; its next-step forecast volume, normalized against uniform participation,
+    sets VWAP aggression. Profiles are estimates from prior sessions, never future tape prints.
+    The environment still controls child size. Without either profile the legacy VWAP arithmetic
+    is unchanged; `schedule_twap` retains its existing cumulative-profile support.
+11. 🟡 **Multi-day implementation ready; full statistical campaign not run** — all 15 dates
+    in `PUBLIC_SAMPLE_DAYS` are supported by `scripts/batch_research_itch.py`. The runner uses
+    sequential staged downloads, validated source/slice hashes, resumable E1–E6 outputs tied to
+    a source-code fingerprint, and descriptive cross-day tables. Tests are network-free. A live
+    transport/resume smoke fetched exactly 1 MiB each for `12302019` and `01302020`; both contained
+    zero regular-session rows and are explicitly partial, not research evidence. Full days are
+    roughly 3.5 GB compressed each; completing all 15 remains bandwidth-dependent (historical
+    local throughput was about 300 KB/s). No full-day data or generated tape slices were committed.
 12. ⏳ **Remaining Project Work (Person A):**
     - Verify GPU risk engine on a CUDA machine (`nexus_risk` + `risk_bench` with `nvcc`).
     - Hardware benchmarks for zero-copy shmem ring throughput.

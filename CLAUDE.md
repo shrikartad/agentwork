@@ -5,7 +5,7 @@
 > **§7 Next steps** so the next session resumes without re-deriving everything.
 > **Part 2 (quant research layer) plan of record: `plan_2.md`** — read that FIRST
 > for the research half; this file stays the systems-half handoff.
-> Last updated: **2026-09-13** (Person B: Part 2 Phases 3–5 landed — see `plan_2.md` §10 and `progress_b.md`).
+> Last updated: **2026-09-14** (Person-B follow-up: empirical VWAP, E7 family CIs, resumable batches, and Linux adapter verification; see `progress_b.md`).
 
 ---
 
@@ -119,7 +119,35 @@ training · W7-8 profiling, dashboard, benchmarks, write-up.
   valid only until the next mutating engine call); `snapshot()` = owning copy (safe to
   retain, telemetry/tests/cross-thread).
 
-## 6. Status — what's DONE (verified 2026-08-30)
+## 6. Status — latest verification 2026-09-14; dated implementation history below
+
+**Person-B follow-up:** working branch `hoplite/kranioi-df83c5d6` in the authorized
+`shrikartad/thelema` copy, based on upstream PR #19 head `69ae5af`.
+
+- Empirical `vwap` now uses the forecast volume over the next episode step. Explicit
+  profiles override `env.volume_profile`; no-profile legacy actions are unchanged.
+  Only prior-session forecasts are appropriate; child sizing remains the env's job.
+- E7 `fill_rate` / `mdd_ticks` CIs resample complete seed families, with correct
+  paired-metric direction and seed alignment. At least two equal-sized families
+  are required; initial loss is included in drawdown. Undefined percentages are
+  `None` and render as `n/a`. Existing published fairness results were not regenerated.
+- `batch_research_itch.py` supports all 15 catalogued dates, byte-limited smoke
+  downloads, verified manifests, resumable per-day E1–E6, source-code fingerprints,
+  and descriptive cross-day tables. Full multi-day statistical validation remains
+  outstanding: roughly 3.5 GB compressed per full day, bandwidth-dependent.
+- Python adapters now preserve injected stub/reset semantics and reconcile native
+  fills, rejection results, partial-modify FIFO priority, order counts, and cancelled
+  handles. Linux pybind and the no-engine path are both tested. C++/CUDA/bindings
+  sources and all frozen state fields remain unchanged.
+
+**Verified:** Python suite **274 passed / 1 local-tape skip**; binding suite
+**8 passed**; native CTest **5/5**; compileall, CI-scope Ruff, and diff whitespace
+checks pass. Without engine import: **262 passed / 13 skipped**. A live two-date
+transport/resume smoke fetched exactly 1 MiB per date, with no regular-session
+rows; those prefixes provide no execution or full-day statistical evidence.
+
+No new out-of-sample execution-superiority claim is made. Reproduction and
+compatibility details are in the current update at the top of `progress_b.md`.
 
 **Phase 1 — C++ matching engine implemented & tested; pybind `Engine` wired to it.**
 
@@ -287,6 +315,12 @@ This is the Person A ↔ Person B integration seam.
 
 ## 7. Next steps (ordered; low-risk foundations first)
 
+**Current Person-B next steps:** run the full 15-day tape campaign when bandwidth
+permits, then regenerate and review statistical reports under the current code.
+Re-run the fair seeded evaluation before replacing its historical CIs; this
+follow-up changed the resampling unit and corrected initial drawdown accounting.
+The original implementation checklist below is retained as dated history.
+
 1. ~~**`.gitignore`**~~ — ✅ done 2026-08-24.
 2. ~~**`bindings/CONTRACT.md`**~~ — ✅ done 2026-08-24 (full spec, offsets verified).
 3. ~~**Build system**~~ — ✅ `CMakeLists.txt` + `pyproject.toml` authored 2026-08-30
@@ -343,15 +377,22 @@ All 12 original plan items are complete. Remaining work is **polish & measuremen
 | CUDA kernel compile + ~40× speedup measurement | Person A | Yes — no `nvcc`/toolkit on this machine |
 | Throughput/latency on real hardware (>500k ord/s, sub-µs) | Person A | Yes — Windows sandbox throttles; needs Linux/real box |
 | Reconcile & sanitize dashboard — retired +50.4% labeled, active fair benchmark featured | Person B | ✅ 2026-09-14 |
-| E7 execution metrics (`fill_rate` parent-order fill fraction, `max_drawdown` ticks) | Person B | ✅ 2026-09-14 |
-| Empirical volume profiler (`VolumeProfile` + `EmpiricalVolumeForecaster` in `volume_profile.py`) | Person B | ✅ 2026-09-14 |
-| Multi-day NASDAQ ITCH tape (15 public dates catalogued; full batch bounded by ~300 KB/s network) | Person B | 🟡 Partially complete / in progress |
+| E7 `fill_rate` / `mdd_ticks`, whole-family CIs, paired metric direction | Person B | ✅ 2026-09-14; published study not rerun |
+| Empirical volume profiler and VWAP baseline conditioning | Person B | ✅ 2026-09-14; no-profile legacy actions preserved |
+| Multi-day NASDAQ ITCH: 15 dates catalogued, resumable batch harness ready | Person B | 🟡 Full statistical campaign not run; ~3.5 GB/day, bandwidth-dependent |
 | Part 2 quant research layer (Phases 0–5 complete, PR #19 on `Lokeshrao69/Nexus_LOB`) | Person B | ✅ 2026-09-14 (160 tests passing) |
 
 ## 8. Environment reality (IMPORTANT — read before running anything)
 
-This Claude session runs on **Windows 11 + Git Bash / MSYS2** (NOT WSL). The repo
-lives on a **OneDrive** path (`C:\Users\pekka\OneDrive\Documents\Finance Project-1`).
+**Current follow-up verification (2026-09-14):** Linux, Python 3.12.3, GCC 13.3,
+pybind11 2.13.6. The unchanged native engine was built with portable CPU flags and
+CUDA disabled. Build products stayed in ignored `build/` and the private venv,
+not in the protected source directories. CUDA performance was not measured.
+
+**Historical Windows reference:** the original sessions used **Windows 11 + Git
+Bash / MSYS2** (not WSL), with the repo on a **OneDrive** path
+(`C:\Users\pekka\OneDrive\Documents\Finance Project-1`). The notes below describe
+that environment, not the current Linux workspace.
 
 **Branch state (2026-09-12):** `main` holds all merged work (PRs #1–#9) AND the reconciled
 dashboard — `python_quant/nexus_quant/dashboard_page.html` (combined desk, served at `/`) +

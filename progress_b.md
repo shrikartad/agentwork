@@ -1,8 +1,114 @@
 # Person B Handoff: Python Quantitative Layer
 
-**Updated:** 2026-09-04
-**Checkout:** `C:\Users\Shrikar\nexus\parent-transfer`
-**Branch:** `main` at `d40bf59` (tracking `origin/main`)
+**Updated:** 2026-09-14
+**Checkout:** Linux verification workspace; authorized destination `shrikartad/thelema`.
+**Branch:** `hoplite/kranioi-df83c5d6`.
+**Upstream base:** Nexus-LOB PR #19, `69ae5af8faeaaf6694630cddc2c44b6ce0096ca6`.
+
+## Current status — remaining Person-B implementation complete
+
+New commits use `ShrikarT <132975062+ShrikarT@users.noreply.github.com>` as both
+author and committer. Imported upstream history is preserved. Milestones were
+pushed to `thelema`; no upstream PR was opened or modified.
+
+### Interfaces and correctness
+
+- **VWAP:** `policy_action("vwap", env, volume_profile=profile)` takes precedence
+  over `env.volume_profile`. For step `t` of horizon `T`, aggression uses
+  `clip(T * (C((t + 1) / T) - C(t / T)), 0, 1)` in place of the last-print heuristic.
+  `C` is a historical forecast, not realized future volume. This controls the
+  action/participation proxy, not the env's child-size rule. No-profile arithmetic
+  is unchanged, including the existing completion threshold. The forecaster's
+  prior-date filtering and `schedule_twap` integration remain in place.
+- **E7:** `evaluate_regime_ci()` and `paired_difference_ci()` handle `fill_rate`
+  and `mdd_ticks`, as well as shortfall and market-VWAP slippage. Resampling draws
+  whole seed-family blocks with replacement, never arbitrary blocks cutting
+  through a family. At least two families with equal episode counts are required;
+  a single family cannot estimate between-family uncertainty. Paired observations
+  align by `(seed_family, seed)`. Positive delta means higher fill fraction or
+  lower drawdown/cost. Deterministic percentile bounds are expanded to include
+  the observed estimate. MDD includes the initial zero-to-first-step loss.
+  **Compatibility:** `pct_vs_baseline` is `None` for nonpositive/near-zero baselines
+  and renders as `n/a`; incomplete families and invalid pairings raise `ValueError`.
+- **Multi-day runner:** `batch_research_itch.py` accepts `--days` (catalogued dates
+  or `all`), `--symbols` (default `AAPL,QQQ`), `--max-gz-bytes`, `--out-dir`
+  (default `data/itch`), `--results-dir` (default `docs/results/multi_day`), and
+  `--skip-existing`. Sources are fetched sequentially into staging and checked
+  against gzip coverage, requested byte cap, symbol files, sizes, and SHA-256s.
+  Valid source slices are reused even when analysis must be regenerated.
+  `--skip-existing` also reuses completed research when its files, parameters,
+  and executable-source fingerprint still match. Old manifests without coverage
+  provenance are deliberately not trusted as complete days. Failures are recorded
+  per date, successful days survive retries, and any failed day yields exit 1.
+  Resume is per completed date, not a mid-gzip byte offset: an interrupted download
+  restarts that date, while intact source slices survive an analysis interruption.
+  A byte-limited run always remains partial, even if a complete small stream fits.
+  Per-day `research_manifest.json`, `batch_manifest.json`, and
+  `multi_day_summary.{json,md}` distinguish coverage and available statistics.
+  Cross-day tables are descriptive; no event rows or estimates are pooled.
+- **Python/native seam:** `lookup`/`cancel_id`, same-price native `modify`, FIFO
+  residuals, rejected/duplicate orders, counts, deep book walks, reset, and view
+  ownership are covered against stub, strict fake, and optional native backends.
+  Raw stub/engine mutation APIs intentionally differ; the adapter is the common
+  seam. Stub resets preserve the injected object. A native engine is opaque and
+  must be recreated on reset: supply `EngineAdapter(engine, engine_factory=...)`
+  when nondefault constructor settings must survive. No ABI fields or files in
+  `cpp_engine/**`, `cuda_risk/**`, or `bindings/**` were changed.
+
+### Verification and remaining research
+
+Linux: Python 3.12.3, GCC 13.3, pybind11 2.13.6; native flags
+`NEXUS_NATIVE_ARCH=OFF`, `NEXUS_ENABLE_CUDA=OFF`.
+The system interpreter lacked development headers, so verification used matching
+project-local CPython 3.12.3 headers. An ignored CMake driver redirected native
+module output into `build/`, then the module was copied into the private venv;
+no native source or binding-test edits were needed.
+
+| Check | Result |
+|---|---|
+| `python -m pytest python_quant/tests -q` | **274 passed, 1 skipped** (full local tape absent) |
+| `python -m pytest bindings/tests -q` | **8 passed** |
+| Python suite with `nexus_engine` import disabled | **262 passed, 13 skipped** |
+| CTest, unchanged C++ sources | **5/5 passed** |
+| `python -m compileall -q python_quant` | exit **0** |
+| `ruff check python_quant/nexus_quant/ bindings/` | passed |
+| `git diff --check` | exit **0** |
+
+All batch unit tests use mock byte streams, including nonempty fill/adverse
+calculations and interrupted resume. Separately, a live transport smoke on
+`12302019` and `01302020` fetched **1,048,576 compressed bytes each** and then reused
+both sources/results on rerun. Both slices contained only directory/session
+messages, with **zero regular-session rows**. They are partial transport checks,
+not full-day validation or performance evidence; data and smoke outputs remain
+gitignored.
+
+**Still outstanding:** full multi-day statistical runs across the 15 catalogued
+dates, about 3.5 GB compressed per full day, depend on available bandwidth. The
+historical local bottleneck was about 300 KB/s; that is not a speed claim for
+this workspace. Existing full-day and fairness reports were not regenerated;
+rerun the seeded fairness study under the corrected CI/MDD code before replacing
+its historical tables. **No new out-of-sample execution superiority is claimed.**
+Person A's CUDA and hardware measurements are unchanged and outside this work.
+
+### Reproduce
+
+```bash
+python -m pytest python_quant/tests -q
+python -m compileall -q python_quant
+git diff --check
+git status
+
+# Bounded transport/restart check; not full-day statistical evidence.
+python python_quant/scripts/batch_research_itch.py \
+  --days 12302019,01302020 --symbols AAPL,QQQ --max-gz-bytes 1048576 \
+  --out-dir data/itch_batch_smoke --results-dir docs/results/quick/batch_transport \
+  --skip-existing
+
+# Full campaign: multi-gigabyte downloads, one date at a time.
+python python_quant/scripts/batch_research_itch.py --days all --skip-existing
+```
+
+The earlier dated notes below are historical and are superseded by this update.
 
 ## Scope
 
@@ -11,7 +117,7 @@ Gymnasium execution environment, book adapters, baselines, and their tests.
 The C++ matching engine, pybind bridge, ABI parity, and shared contract belong
 to Person A.
 
-## Current Status
+## Historical Status (2026-09-04)
 
 The Person-B implementation is now present on upstream `main`. PR #2 ("Add
 Person B execution environment and ITCH replay") was merged into `main` on
@@ -45,10 +151,10 @@ lines:
 
 ## Frozen Boundaries
 
-Do not modify `cpp_engine/**`, `bindings/pybind_wrapper.cpp`,
-`bindings/CONTRACT.md`, `python_quant/nexus_quant/book_state.py`,
+Do not modify `cpp_engine/**`, `cuda_risk/**`, or `bindings/**`.
 `BOOK_STATE_DTYPE`, `DEPTH`, `Side`, field order/names, integer-tick pricing,
-or the `view()` zero-copy contract. No frontend, TypeScript, or React work is
+and the native `view()` zero-copy contract remain frozen. Python method fixes
+must preserve those invariants. No frontend, TypeScript, or React work is
 part of this repository task.
 
 ## ITCH Parser

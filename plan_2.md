@@ -271,3 +271,15 @@ Exact shipped API: **`docs/work_package_b_phases_2_4.md §2.2`** (frozen). Signa
   - **Priority 4 (Multi-Day Real-Tape Catalogue):** Catalogued 15 verified public NASDAQ sample dates in `PUBLIC_SAMPLE_DAYS` in `fetch_itch.py` and unit tested in `test_offline_real_tape.py`. Multi-day validation documented honestly as partially complete / in progress due to local network bandwidth bounds (~300 KB/s; ~3.2h per 3.5GB file).
   - **Priority 5 (Documentation Synchronization):** All docs updated. Tier 1 test suite: **160 passed** (6 skipped on Windows; 166 collected).
   - **Remaining:** Multi-day E1–E6 validation across all 15 dates (pending high-bandwidth environment); Person A: GPU + hardware numbers.
+
+- **2026-09-14 — Person-B implementation follow-up completed.** Empirical VWAP
+  conditioning now preserves the exact no-profile heuristic; E7 fill-rate and
+  drawdown CIs resample whole seed families and enforce paired seed identity.
+  The 15-date batch harness now validates provenance, resumes downloads/research,
+  fingerprints analysis code, and emits descriptive cross-day tables. Python
+  adapters were verified against both the compiled Linux engine and no-engine
+  paths without changing the frozen native subsystems. Python: **274 passed /
+  1 local-tape skip**; bindings: **8 passed**; CTest: **5/5**. A two-date 1 MiB/day
+  live smoke had zero regular-session rows and is not statistical evidence.
+  Full multi-day runs and regeneration of historical fairness CIs remain pending;
+  no new execution-superiority claim is made. Current handoff: `progress_b.md`.
