@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 from nexus_quant.agents.evaluate import (
@@ -386,7 +388,12 @@ def test_fairness_report_handles_undefined_percentages(percentages):
     from scripts.rl_fairness_study import render_markdown
 
     estimate = {"mean": 0.0, "lo": 0.0, "hi": 0.0}
-    summary = {"ppo_pooled_mean": 0.0, "ppo_seed_std": 0.0, "baselines": {"twap": estimate}}
+    summary = {
+        "ppo_pooled_mean": 0.0,
+        "ppo_seed_std": 0.0,
+        "ppo_seeds": [{"lo": 0.75, "hi": 0.9}],
+        "baselines": {"twap": estimate},
+    }
     metrics = ("shortfall_bps", "completion", "fill_rate", "mdd_ticks", "vwap_slip_bps")
     result = {
         "config": {"train_regime": "calm", "holdout_regimes": [], "train_seeds": 2,
@@ -403,3 +410,24 @@ def test_fairness_report_handles_undefined_percentages(percentages):
     report = render_markdown(result)
     assert "bps (n/a)" in report
     assert "nan" not in report.lower()
+    assert "PPO fill rate†" in report and "PPO max DD (ticks)†" in report
+    assert report.count("0.000 ± 0.000 [0.750,0.900]") >= 2
+
+
+def test_fairness_policy_cache_manifest_requires_matching_source(tmp_path):
+    from scripts.rl_fairness_study import _prepare_policy_cache
+
+    args = SimpleNamespace(
+        iters=600, episodes=16, train_seeds=5, eval_seeds=5, episodes_per_seed=20,
+    )
+    cache = tmp_path / "fairness"
+    cache.mkdir()
+    source = {"combined": "a" * 64}
+
+    fresh = _prepare_policy_cache(cache, args, source)
+    resumed = _prepare_policy_cache(cache, args, source)
+
+    assert fresh["state"] == "fresh"
+    assert resumed["state"] == "resumed"
+    with pytest.raises(ValueError, match="does not match"):
+        _prepare_policy_cache(cache, args, {"combined": "b" * 64})
