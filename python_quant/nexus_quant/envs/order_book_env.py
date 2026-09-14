@@ -37,7 +37,10 @@ Examples: ``-1`` market; ``0`` post at mid; ``0.7`` rest 8 ticks through
 the ask; ``-0.4`` rest 5 ticks below mid (often inside the spread / at bid).
 
 Child size is ``clamp(ceil(inv / t_left), 20, child_max)``. One live child
-per step; the previous residual is cancelled first.
+per step; the previous residual is cancelled first. With
+``queue_model="uniform"``, a passive child arrives after a uniformly selected
+number of already-generated exogenous arrivals in the current step. This is a
+latency/queue proxy, never a post-match haircut of an actual execution.
 
 Reward
 ------
@@ -72,6 +75,7 @@ terminated / truncated step (terminal dump included).
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, ClassVar
 
 import numpy as np
@@ -93,6 +97,18 @@ SIZE_SCALE = 800.0
 MAX_OFFSET = 12
 DEFAULT_Q = 2_000
 DEFAULT_T = 40
+
+
+@dataclass(frozen=True, slots=True)
+class ExogenousArrival:
+    """One immutable seeded exogenous event for an environment step."""
+
+    kind: str
+    side: Side
+    qty: int
+    relative_offset: int = 0
+    gap: bool = False
+
 
 OBS_LABELS: list[str] = (
     [f"bidΔ{i}" for i in range(DEPTH)]
@@ -138,17 +154,17 @@ class OrderBookEnv(_Base):  # type: ignore[misc]
         vol_events_min: int = 3,
         vol_events_max: int = 8,
         vol_feature: bool = False,
-        # --- risk↔env seam (default off: existing tests / RNG path unchanged) ---
+        # --- risk↔env seam (default off) ---
         lambda_risk: float = 0.0,
         risk_paths: int = 256,
         risk_steps: int = 16,
         risk_sigma: float = 0.25,
-        # --- execution realism (Phase 2; defaults off = byte-identical to today) ---
+        # --- execution realism (defaults off) ---
         fee_bps: float = 0.0,
         rebate_bps: float = 0.0,
         impact_coef: float = 0.0,
         impact_participation: float = 0.1,
-        queue_model: str = "",  # "" = off; "uniform" = placeholder queue-depth model
+        queue_model: str = "",  # "" = off; "uniform" = within-step delay proxy
     ) -> None:
         self.inventory0 = int(inventory)
         self.horizon = int(horizon)
@@ -159,7 +175,7 @@ class OrderBookEnv(_Base):  # type: ignore[misc]
         self.lambda_sched = float(lambda_sched)
         self.child_max = int(child_max)
         self._seed0 = int(seed)
-        self._rng = np.random.default_rng(self._seed0)
+        self._reset_rngs()
         self.book = adapt(book if book is not None else StubOrderBook())
         # regime params
         self.regime_prob = float(regime_prob)
@@ -207,8 +223,12 @@ class OrderBookEnv(_Base):  # type: ignore[misc]
         self.arrival_mid = 0
         self.agent_rest: Resting | None = None
         self.fills: list[tuple[int, int, int]] = []  # (t, px, sz)
+        self._exec_qty = 0
+        self._exec_notional = 0
         self._mkt_qty = 0
         self._mkt_notional = 0
+        self._exogenous_arrivals: list[tuple[ExogenousArrival, ...]] = []
+        self._queue_delays: list[int | None] = []
 
     def reset(
         self,
@@ -219,17 +239,21 @@ class OrderBookEnv(_Base):  # type: ignore[misc]
         del options
         if seed is not None:
             self._seed0 = int(seed)
-        self._rng = np.random.default_rng(self._seed0)
+        self._reset_rngs()
         self.book.reset()
         self._seed_book()
         self.t = 0
         self.inventory = self.inventory0
         self.cash_ticks = 0
         self.fills = []
+        self._exec_qty = 0
+        self._exec_notional = 0
         self.agent_rest = None
         self._volatile = False
         self._mkt_qty = 0
         self._mkt_notional = 0
+        self._exogenous_arrivals = []
+        self._queue_delays = []
         self.arrival_mid = self._mid() or 15_000
         obs = self._observe()
         return obs, {"arrival_mid": self.arrival_mid}
@@ -243,8 +267,13 @@ class OrderBookEnv(_Base):  # type: ignore[misc]
         want = min(self.inventory, self._child_size())
         filled = 0
         notional = 0
+        fill_parts: tuple[tuple[int, int], ...] = ()
         mode = "limit"
         action_ticks = 0
+        rested_qty = 0
+        arrivals = self._next_exogenous_arrivals()
+        self._exogenous_arrivals.append(arrivals)
+        queue_delay: int | None = None
 
         if a <= -0.92 or want <= 0:
             mode = "market"
@@ -252,6 +281,8 @@ class OrderBookEnv(_Base):  # type: ignore[misc]
             if want > 0:
                 r = self.book.take(Side.Ask, want)
                 filled, notional = r.filled, r.notional_ticks
+                fill_parts = r.fills
+            self._apply_exogenous_arrivals(arrivals)
         else:
             action_ticks = round(a * MAX_OFFSET)
             px = round(mid0) + action_ticks
@@ -260,35 +291,48 @@ class OrderBookEnv(_Base):  # type: ignore[misc]
                 mode = "market"
                 r = self.book.take(Side.Ask, want, limit_px=px)
                 filled, notional = r.filled, r.notional_ticks
+                fill_parts = r.fills
+                self._apply_exogenous_arrivals(arrivals)
             else:
-                limit = max(px, (bid + 1) if bid else px)
-                self.agent_rest = self.book.rest(Side.Ask, limit, want)
+                if self.queue_model:
+                    queue_delay = self._queue_arrival_delay(len(arrivals))
+                    self._apply_exogenous_arrivals(arrivals[:queue_delay])
+                else:
+                    queue_delay = 0
 
-        self._exogenous_flow()
+                current = self.book.view()
+                current_bid = int(current["bid_px"][0])
+                if current_bid and px <= current_bid:
+                    mode = "market"
+                    r = self.book.take(Side.Ask, want, limit_px=px)
+                    filled, notional = r.filled, r.notional_ticks
+                    fill_parts = r.fills
+                else:
+                    limit = max(px, (current_bid + 1) if current_bid else px)
+                    handle = self.book.rest(Side.Ask, limit, want)
+                    rested_qty = max(0, int(handle.size))
+                    self.agent_rest = handle if rested_qty else None
+
+                self._apply_exogenous_arrivals(arrivals[queue_delay:])
+
+        self._queue_delays.append(queue_delay)
 
         if self.agent_rest is not None:
-            live = None
-            if hasattr(self.book, "lookup"):
-                live = self.book.lookup(self.agent_rest.order_id)
-            residual = live.size if live is not None else 0
-            got = want - residual
-            if self.queue_model and got > 0:
-                # Queue-position degradation: only a fraction of the *displayed*
-                # depth ahead of the child is actually reachable this step.
-                # Default "" = today's optimistic fill (queue ignored) = byte-identical.
-                reachable = max(0, got - int(want * self._queue_ahead_frac()))
-                got = min(got, reachable)
+            residual, fill_px = self._agent_rest_state()
+            got = max(0, rested_qty - residual)
             if got > 0:
-                px = live.price if live is not None else self.agent_rest.price
                 filled += got
-                notional += got * px
-            if live is None or live.size <= 0:
+                notional += got * fill_px
+            if residual <= 0:
                 self.agent_rest = None
 
         if filled > 0:
             self.inventory -= filled
             self.cash_ticks += notional
-            self.fills.append((self.t, notional // filled, filled))
+            self._exec_qty += filled
+            self._exec_notional += notional
+            self.fills.extend((self.t, px, size) for px, size in
+                              (fill_parts or ((notional // filled, filled),)))
 
         self.t += 1
         mid1 = self._mid() or mid0
@@ -339,12 +383,17 @@ class OrderBookEnv(_Base):  # type: ignore[misc]
         terminated = self.inventory <= 0
         truncated = (not terminated) and self.t >= self.horizon
         if truncated and self.inventory > 0:
+            self._cancel_agent()
             dump = self.book.take(Side.Ask, self.inventory)
             self.inventory -= dump.filled
             self.cash_ticks += dump.notional_ticks
             if dump.filled:
-                self.fills.append((self.t, dump.avg_px, dump.filled))
+                self._exec_qty += dump.filled
+                self._exec_notional += dump.notional_ticks
+                self.fills.extend((self.t, px, size) for px, size in
+                                  (dump.fills or ((dump.avg_px, dump.filled),)))
             reward -= 2.5 * (self.inventory / self.inventory0)
+            mid1 = self._mid() or mid1
 
         vwap = self.execution_vwap()
         shortfall_bps = (
@@ -367,10 +416,9 @@ class OrderBookEnv(_Base):  # type: ignore[misc]
         return self._observe(), float(reward), bool(terminated), bool(truncated), info
 
     def execution_vwap(self) -> float:
-        qty = sum(sz for _, _, sz in self.fills)
-        if not qty:
+        if not self._exec_qty:
             return 0.0
-        return sum(px * sz for _, px, sz in self.fills) / qty
+        return self._exec_notional / self._exec_qty
 
     def mark_to_market(self, mid: float | None = None) -> float:
         m = float(mid if mid is not None else (self._mid() or self.arrival_mid))
@@ -414,28 +462,61 @@ class OrderBookEnv(_Base):  # type: ignore[misc]
             self.book.cancel_resting(self.agent_rest)
             self.agent_rest = None
 
-    def _queue_ahead_frac(self) -> float:
-        """Fraction of the queue deemed ahead of the child this step (0..1).
+    def _reset_rngs(self) -> None:
+        """Derive independent deterministic streams from the episode seed."""
+        book, flow, queue, replenish = np.random.SeedSequence(self._seed0).spawn(4)
+        self._book_rng = np.random.default_rng(book)
+        self._flow_rng = np.random.default_rng(flow)
+        self._queue_rng = np.random.default_rng(queue)
+        self._replenish_rng = np.random.default_rng(replenish)
 
-        Placeholder until the order-level tracker lands (Phase 3
-        ``queue_dynamics.py``): a uniform draw per step, deterministic under a
-        fixed seed. Only called when ``queue_model`` is non-empty, so the
-        default RNG stream (used for book flow / fills) is unaffected.
-        """
-        return float(self._rng.random())
+    @property
+    def exogenous_arrivals(self) -> tuple[tuple[ExogenousArrival, ...], ...]:
+        """Immutable event descriptors generated for completed steps."""
+        return tuple(self._exogenous_arrivals)
 
-    def _record_market_trade(self, result: Any) -> None:
+    @property
+    def queue_delays(self) -> tuple[int | None, ...]:
+        """Number of arrivals preceding each passive child, or ``None``."""
+        return tuple(self._queue_delays)
+
+    def _queue_arrival_delay(self, n_arrivals: int) -> int:
+        """Uniform discrete child-arrival delay for the current step."""
+        if n_arrivals <= 0:
+            return 0
+        return int(self._queue_rng.integers(0, n_arrivals + 1))
+
+    def _agent_rest_state(self) -> tuple[int, int]:
+        """Return the live agent quantity and its fixed resting price."""
+        if self.agent_rest is None:
+            return 0, 0
+        handle = self.agent_rest
+        live = self.book.lookup(handle.order_id) if hasattr(self.book, "lookup") else handle
+        if live is None:
+            return 0, int(handle.price)
+        return max(0, int(live.size)), int(live.price)
+
+    def _record_market_trade(
+        self,
+        result: Any,
+        *,
+        agent_qty: int = 0,
+        agent_notional: int = 0,
+    ) -> None:
         """Accumulate the tape's own prints (exogenous flow) into market VWAP.
 
-        The agent's own fills/executions are deliberately EXCLUDED — market VWAP
-        is the benchmark the strategy is measured against, so it must be
-        independent of the strategy's own participation (plan_2.md §5 leak 3).
+        Agent-maker volume and notional are excluded. The seeded arrival
+        descriptors are shared, while their realized prices may respond to the
+        current book after a strategy's own actions.
         """
         filled = int(getattr(result, "filled", 0))
         notional = int(getattr(result, "notional_ticks", 0))
-        if filled > 0:
-            self._mkt_qty += filled
-            self._mkt_notional += notional
+        own_qty = min(max(0, int(agent_qty)), filled)
+        own_notional = min(max(0, int(agent_notional)), notional)
+        exogenous_qty = filled - own_qty
+        if exogenous_qty > 0:
+            self._mkt_qty += exogenous_qty
+            self._mkt_notional += notional - own_notional
 
     def market_vwap(self) -> float:
         """Volume-weighted average price of the tape's exogenous prints (ticks)."""
@@ -446,79 +527,133 @@ class OrderBookEnv(_Base):  # type: ignore[misc]
     def _seed_book(self) -> None:
         mid = 15_000
         for i in range(12):
-            bsz = int(120 + self._rng.integers(0, 380))
-            asz = int(120 + self._rng.integers(0, 380))
+            bsz = int(120 + self._book_rng.integers(0, 380))
+            asz = int(120 + self._book_rng.integers(0, 380))
             self.book.rest(Side.Bid, mid - 1 - i, bsz)
             self.book.rest(Side.Ask, mid + 1 + i, asz)
 
-    def _exogenous_flow(self) -> None:
-        # --- Markov regime transition ---
+    def _next_exogenous_arrivals(self) -> tuple[ExogenousArrival, ...]:
+        """Generate one full immutable flow batch before applying it to the book."""
         if self.regime_prob > 0 or self.vol_decay > 0:
             if self._volatile:
-                if self._rng.random() < self.vol_decay:
+                if self._flow_rng.random() < self.vol_decay:
                     self._volatile = False
             else:
-                if self._rng.random() < self.regime_prob:
+                if self._flow_rng.random() < self.regime_prob:
                     self._volatile = True
 
+        arrivals: list[ExogenousArrival] = []
         if not self._volatile:
-            # === calm regime: original code path (deterministic when params = 0) ===
-            n = int(3 + self._rng.integers(0, 5))
+            n = int(3 + self._flow_rng.integers(0, 5))
             for _ in range(n):
-                s = self.book.view()
-                mid = self._mid(s) or 15_000
-                roll = float(self._rng.random())
+                roll = float(self._flow_rng.random())
                 if roll < 0.28:
-                    side = Side.Bid if self._rng.random() < 0.5 else Side.Ask
-                    self._record_market_trade(self.book.take(side, int(15 + self._rng.integers(0, 70))))
-                else:
-                    side = Side.Bid if self._rng.random() < 0.5 else Side.Ask
-                    off = int(1 + self._rng.integers(0, 8))
-                    px = round(mid) - off if side == Side.Bid else round(mid) + off
-                    self.book.rest(side, px, int(30 + self._rng.integers(0, 160)))
-        else:
-            # === volatile regime: larger takes, thinner/wider adds, gap events ===
-            if self.gap_prob > 0 and self._rng.random() < self.gap_prob:
-                gap_sz = int(self._rng.integers(self.gap_min, self.gap_max + 1))
-                # take() walks the OPPOSITE book: an Ask taker hits bids
-                # (price falls = gap down); a Bid taker lifts asks (price up).
-                side = Side.Ask if self._rng.random() < self.gap_down_prob else Side.Bid
-                self._record_market_trade(self.book.take(side, gap_sz))
-                self._ensure_bbo()
-
-            n = int(self._rng.integers(self.vol_events_min, self.vol_events_max + 1))
-            for _ in range(n):
-                s = self.book.view()
-                mid = self._mid(s) or 15_000
-                roll = float(self._rng.random())
-                if roll < self.vol_take_prob:
-                    side = Side.Bid if self._rng.random() < 0.5 else Side.Ask
-                    self._record_market_trade(
-                        self.book.take(
-                            side,
-                            int(self._rng.integers(self.vol_take_min, self.vol_take_max + 1)),
+                    side = Side.Bid if self._flow_rng.random() < 0.5 else Side.Ask
+                    arrivals.append(
+                        ExogenousArrival(
+                            "take", side, int(15 + self._flow_rng.integers(0, 70)),
                         )
                     )
                 else:
-                    side = Side.Bid if self._rng.random() < 0.5 else Side.Ask
-                    off = int(self._rng.integers(self.vol_add_offset_min, self.vol_add_offset_max + 1))
-                    px = round(mid) - off if side == Side.Bid else round(mid) + off
-                    self.book.rest(
-                        side, px,
-                        int(self._rng.integers(self.vol_add_min, self.vol_add_max + 1)),
+                    side = Side.Bid if self._flow_rng.random() < 0.5 else Side.Ask
+                    arrivals.append(
+                        ExogenousArrival(
+                            "add", side,
+                            int(30 + self._flow_rng.integers(0, 160)),
+                            int(1 + self._flow_rng.integers(0, 8)),
+                        )
                     )
+        else:
+            if self.gap_prob > 0 and self._flow_rng.random() < self.gap_prob:
+                side = Side.Ask if self._flow_rng.random() < self.gap_down_prob else Side.Bid
+                arrivals.append(
+                    ExogenousArrival(
+                        "take", side,
+                        int(self._flow_rng.integers(self.gap_min, self.gap_max + 1)),
+                        gap=True,
+                    )
+                )
+
+            n = int(self._flow_rng.integers(self.vol_events_min, self.vol_events_max + 1))
+            for _ in range(n):
+                roll = float(self._flow_rng.random())
+                if roll < self.vol_take_prob:
+                    side = Side.Bid if self._flow_rng.random() < 0.5 else Side.Ask
+                    arrivals.append(
+                        ExogenousArrival(
+                            "take", side,
+                            int(
+                                self._flow_rng.integers(
+                                    self.vol_take_min, self.vol_take_max + 1,
+                                )
+                            ),
+                        )
+                    )
+                else:
+                    side = Side.Bid if self._flow_rng.random() < 0.5 else Side.Ask
+                    arrivals.append(
+                        ExogenousArrival(
+                            "add", side,
+                            int(self._flow_rng.integers(self.vol_add_min, self.vol_add_max + 1)),
+                            int(
+                                self._flow_rng.integers(
+                                    self.vol_add_offset_min,
+                                    self.vol_add_offset_max + 1,
+                                )
+                            ),
+                        )
+                    )
+        return tuple(arrivals)
+
+    def _apply_exogenous_arrivals(self, arrivals: tuple[ExogenousArrival, ...]) -> None:
+        """Apply seeded arrivals at prices derived from the current book state."""
+        for arrival in arrivals:
+            if arrival.kind == "add":
+                state = self.book.view()
+                bid, ask = int(state["bid_px"][0]), int(state["ask_px"][0])
+                mid = self._mid(state) or (bid + 1 if bid else ask - 1 if ask else 15_000)
+                px = (
+                    round(mid) - arrival.relative_offset
+                    if arrival.side == Side.Bid
+                    else round(mid) + arrival.relative_offset
+                )
+                if arrival.side == Side.Bid and ask:
+                    px = min(px, ask - 1)
+                elif arrival.side == Side.Ask and bid:
+                    px = max(px, bid + 1)
+                self.book.rest(arrival.side, px, arrival.qty)
+                continue
+
+            before_qty, agent_px = self._agent_rest_state()
+            result = self.book.take(arrival.side, arrival.qty)
+            after_qty, _ = self._agent_rest_state()
+            agent_qty = max(0, before_qty - after_qty)
+            self._record_market_trade(
+                result,
+                agent_qty=agent_qty,
+                agent_notional=agent_qty * agent_px,
+            )
+            if arrival.gap:
+                self._ensure_bbo()
 
     def _ensure_bbo(self) -> None:
         """Replenish book if a gap drained it (avoids _mid() returning None)."""
         s = self.book.view()
         bb, ba = int(s["bid_px"][0]), int(s["ask_px"][0])
-        if not bb:
+        if not bb and not ba:
             mid = 15_000
             for i in range(4):
-                self.book.rest(Side.Bid, mid - 1 - i, int(100 + self._rng.integers(0, 100)))
-            if not ba:
-                for i in range(4):
-                    self.book.rest(Side.Ask, mid + 1 + i, int(100 + self._rng.integers(0, 100)))
+                self.book.rest(Side.Bid, mid - 1 - i, int(100 + self._replenish_rng.integers(0, 100)))
+                self.book.rest(Side.Ask, mid + 1 + i, int(100 + self._replenish_rng.integers(0, 100)))
+        elif not bb:
+            for i in range(4):
+                self.book.rest(
+                    Side.Bid, ba - 1 - i,
+                    int(100 + self._replenish_rng.integers(0, 100)),
+                )
         elif not ba:
             for i in range(4):
-                self.book.rest(Side.Ask, bb + 1 + i, int(100 + self._rng.integers(0, 100)))
+                self.book.rest(
+                    Side.Ask, bb + 1 + i,
+                    int(100 + self._replenish_rng.integers(0, 100)),
+                )

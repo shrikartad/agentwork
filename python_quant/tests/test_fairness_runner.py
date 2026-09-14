@@ -112,3 +112,18 @@ def test_atomic_json_keeps_prior_report_on_nonfinite_value(tmp_path):
     with pytest.raises(ValueError):
         study._atomic_json(path, {"mean": float("nan")})
     assert json.loads(path.read_text()) == {"complete": True}
+
+
+def test_quick_cli_does_not_overwrite_full_study(tmp_path, monkeypatch):
+    seen = []
+    monkeypatch.setattr(study, "_ROOT", tmp_path)
+    monkeypatch.setattr(study, "run", lambda args: (seen.append(args) or {"config": {}}))
+    monkeypatch.setattr(study, "render_markdown", lambda _: "smoke study\n")
+    full = tmp_path / "docs" / "results" / "rl_fairness.json"
+    full.parent.mkdir(parents=True)
+    full.write_text("full study", encoding="utf-8")
+    assert study.main(["--quick", "--artifacts", str(tmp_path / "cache")]) == 0
+    assert seen[0].episodes == 4
+    assert seen[0].out == full.parent / "quick" / full.name
+    assert full.read_text() == "full study"
+    assert seen[0].out.is_file()

@@ -46,6 +46,7 @@ class Resting:
 class TakeResult:
     filled: int
     notional_ticks: int
+    fills: tuple[tuple[int, int], ...] = ()
 
     @property
     def avg_px(self) -> int:
@@ -134,6 +135,7 @@ class StubBookAdapter:
         """Walk opposite displayed levels. Does not require C++ matching."""
         remaining = int(qty)
         notional = 0
+        fills: list[tuple[int, int]] = []
         if side == Side.Bid:
             opp = Side.Ask
         else:
@@ -152,7 +154,8 @@ class StubBookAdapter:
             self.book.record_trade(side, px, hit)
             remaining -= hit
             notional += hit * px
-        return TakeResult(filled=int(qty) - remaining, notional_ticks=notional)
+            fills.append((px, hit))
+        return TakeResult(filled=int(qty) - remaining, notional_ticks=notional, fills=tuple(fills))
 
     def _levels(self, side: Side) -> list[tuple[int, int]]:
         """Return all stub levels, not just the ABI-visible top ``DEPTH`` levels."""
@@ -345,7 +348,8 @@ class EngineAdapter:
             px = int(self.view().get("last_trade_px") or 0)
             notional = filled * px
         self._consume_maker_fills(fills)
-        return TakeResult(filled=filled, notional_ticks=notional)
+        return TakeResult(filled=filled, notional_ticks=notional,
+                          fills=tuple((int(f[2]), int(f[3])) for f in fills))
 
     def _consume_maker_fills(self, fills: list[Any]) -> None:
         """Reconcile adapter handles after an engine call crosses resting liquidity."""

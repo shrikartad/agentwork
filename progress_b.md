@@ -9,6 +9,23 @@
 
 ### Full-campaign execution update (2026-09-14)
 
+**Simulator milestone verified:** replaced impossible post-match queue haircuts
+with a uniform within-step child-arrival delay; actual FIFO fills are always
+credited. Book seeding, exogenous arrivals, queue delays, and replenishment use
+independent RNG streams. Shared seeds now preserve immutable arrival descriptors,
+not identical endogenous prices. Agent-maker volume/notional is excluded from
+market VWAP. Generated liquidity remains uncrossed after one side depletes.
+Adapters retain the actual integer-price fills of multi-level takes, so generic
+metrics, environment VWAP, and cash accounting agree exactly (including terminal
+liquidation). Python/native state fields and native sources remain unchanged.
+
+**341 tests passed / 12 native skips**, scoped Ruff/compileall/diff checks pass.
+An additional 360-episode six-regime probe found exact quantity/notional
+conservation and zero crossed/locked books; occasional empty sides under depleted
+liquidity remain an allowed model state. The quick CLI now uses four training
+episodes and an ignored output directory rather than overwriting the full study.
+The final E7 result must come from a fresh cache under this corrected source.
+
 **Execution-throughput milestone:** the E1–E4 bootstrap now re-ranks each draw
 from its value multiplicities instead of sorting both sampled arrays repeatedly.
 Random block draws, tie handling, and the Spearman statistic are unchanged;

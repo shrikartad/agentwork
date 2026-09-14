@@ -116,6 +116,31 @@ def test_episode_drawdown_includes_first_step_loss():
     assert row["mdd_ticks"] == pytest.approx(expected)
 
 
+def test_episode_slippage_uses_exact_multilevel_notional():
+    from nexus_quant.book_state import Side
+    from nexus_quant.envs.order_book_env import ExogenousArrival
+
+    class MultiPriceEnv(OrderBookEnv):
+        def reset(self, **kwargs):
+            super().reset(**kwargs)
+            self.book.reset()
+            self.book.rest(Side.Bid, 14_999, 1)
+            self.book.rest(Side.Bid, 14_998, 2)
+            self.book.rest(Side.Ask, 15_001, 10)
+            return self._observe(), {"arrival_mid": self.arrival_mid}
+
+        def _next_exogenous_arrivals(self):
+            return (ExogenousArrival("take", Side.Bid, 1),)
+
+    env = MultiPriceEnv(inventory=3, horizon=1)
+    row = _episode_rows(env, lambda _env, _obs: -1.0, seeds=[7])[0]
+    vwap = (14_999 + 2 * 14_998) / 3
+    assert env.execution_vwap() == pytest.approx(vwap)
+    assert row["shortfall_bps"] == pytest.approx((15_000 - vwap) / 15_000 * 1e4)
+    assert row["is_bps"] == row["shortfall_bps"]
+    assert row["vwap_slip_bps"] == pytest.approx((15_001 - vwap) / 15_001 * 1e4)
+
+
 # ---------------------------------------------------------------------------
 # E7 seed-family confidence intervals
 # ---------------------------------------------------------------------------

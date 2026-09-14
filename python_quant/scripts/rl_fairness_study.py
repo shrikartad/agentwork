@@ -176,6 +176,7 @@ def run(args: argparse.Namespace) -> dict:
             "eval_seeds": args.eval_seeds, "episodes_per_seed": args.episodes_per_seed,
             "train_regime": TRAIN_REGIME, "holdout_regimes": list(HOLDOUT_REGIMES),
             "costs_on": True, "baselines": list(ALL_BASELINES),
+            "metric_basis": "gross execution prices and gross inventory PnL; fees, rebates and impact enter reward only",
             "n_boot": args.n_boot, "eval_seed0": EVAL_SEED0,
             "ci_method": "whole_seed_family_percentile_bootstrap",
             "source_fingerprint": _source_fingerprint(), "runtime": _runtime(),
@@ -190,7 +191,7 @@ def run(args: argparse.Namespace) -> dict:
         policies = [_train(mode, s, args.iters, args.episodes, out_dir) for s in range(args.train_seeds)]
         common = {"seeds": args.eval_seeds, "episodes_per_seed": args.episodes_per_seed,
                   "seed0": EVAL_SEED0}
-        # every strategy runs the SAME seeded episodes once; all metrics derive from those rows
+        # Every metric uses the same stored episodes, paired by seed across strategies.
         base_eps = run_regime_episodes(None, factories, baselines=ALL_BASELINES, **common)
         agent_eps = [run_regime_episodes(pol, factories, agent_name="ppo", **common) for pol in policies]
         rows_path = out_dir / f"episodes_{mode}.json"
@@ -261,11 +262,12 @@ def render_markdown(res: dict) -> str:
             f"Training regime **{cfg['train_regime']}**, hold-outs {', '.join(cfg['holdout_regimes'])}. "
             f"{cfg['train_seeds']} training seeds × {cfg['eval_seeds']} eval seed families × "
             f"{cfg['episodes_per_seed']} episodes; PPO {cfg['iters']} iters × {cfg['episodes']} episodes/iter. "
-            "Fees + queue model **on** for every number. Slippage positive = a cost (bps)."
+                "Fees/rebates/impact enter the training reward; execution-price and PnL metrics below are **gross**, "
+                "not net of those charges. The queue proxy is enabled. Slippage positive = a cost (bps)."
         ),
         "",
         (
-            "`Δ` is the **paired** per-episode difference `baseline − PPO` on identical seeded tapes "
+            "`Δ` is the **paired** per-episode difference `baseline − PPO` on the same seeded exogenous arrival draws "
             "(positive = PPO better) with a whole-seed-family bootstrap 95% CI; `sig` counts training seeds whose CI "
             "excludes 0 in PPO's favour / against it."
         ),
@@ -273,7 +275,7 @@ def render_markdown(res: dict) -> str:
     ]
     lines += [
         ("Fill rate is the parent-order filled fraction (including terminal liquidation), not child-order fill probability. "
-        "Drawdown is the maximum loss from a prior peak of aggregate inventory PnL, including the initial zero. "
+        "Drawdown is the maximum loss from a prior peak of gross aggregate inventory PnL, including the initial zero. "
         "Its historical `mdd_ticks` name denotes tick-valued PnL (ticks × shares), not a per-share price drawdown."),
         "",
         ("The best baseline is selected by mean shortfall on these evaluation episodes. Its paired CIs are "
@@ -347,12 +349,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--episodes-per-seed", type=int, default=20)
     ap.add_argument("--n-boot", type=int, default=2000)
     ap.add_argument("--artifacts", default="python_quant/artifacts/fairness", help="policy cache (gitignored .npz)")
-    ap.add_argument("--out", type=Path, default=_ROOT / "docs" / "results" / "rl_fairness.json")
+    ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--quick", action="store_true", help="smoke settings (2 seeds, 40 iters, 4 episodes)")
     args = ap.parse_args(argv)
     if args.quick:
-        args.iters, args.train_seeds, args.eval_seeds, args.episodes_per_seed, args.n_boot = 40, 2, 2, 4, 200
+        args.iters, args.episodes, args.train_seeds, args.eval_seeds, args.episodes_per_seed, args.n_boot = 40, 4, 2, 2, 4, 200
         args.artifacts = str(Path(args.artifacts) / "quick")
+    if args.out is None:
+        root = _ROOT / "docs" / "results"
+        args.out = (root / "quick" if args.quick else root) / "rl_fairness.json"
     try:
         _validate_args(args)
     except ValueError as exc:

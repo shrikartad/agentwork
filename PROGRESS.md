@@ -5,6 +5,14 @@ This authorized working copy preserves upstream Nexus-LOB PR #19 at
 `69ae5af8faeaaf6694630cddc2c44b6ce0096ca6` and adds the remaining Person-B implementation.
 No upstream PR was opened or modified by this follow-up.
 
+**Simulator correctness milestone:** queue fills, market-VWAP exclusion, paired
+random flow, and exact multi-price notional are corrected. Verification: **341
+Python tests passed / 12 native skips**, clean scoped lint/compileall/diff checks,
+plus 360 invariant-checked episodes. The updated uniform queue model is an arrival
+delay proxy. Gross price/PnL metrics are now labeled accurately; costs influence
+reward rather than being silently described as net results. Fresh E7 retraining
+is the next execution gate.
+
 **Full-day milestone: 1/15 complete.** The verified 2019-12-30 E1–E6 handoff has
 1,484,259 AAPL and 2,209,131 QQQ regular-session rows, with zero truncation,
 integrity, or unknown-ID errors. An independent full download matched all source

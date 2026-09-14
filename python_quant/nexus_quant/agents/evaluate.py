@@ -5,10 +5,10 @@ VWAP**. ``shortfall_bps`` (from ``OrderBookEnv`` info) is ``(arrival_mid −
 vwap) / arrival_mid × 1e4`` — how much the child execution conceded relative
 to the arrival mid, in basis points. Lower is better.
 
-To make the comparison fair every strategy runs the **same seeded episodes**:
-episode *i* = ``seed + i``, which reproduces identical initial books and
-exogenous flow for TWAP/VWAP/POV/Passive and the agent alike, so the only
-difference in results is the policy, not the tape.
+Every strategy runs the same episode seeds and exogenous arrival descriptors.
+Realized prices and fills remain endogenous to the strategy's book impact;
+paired seeds do not imply identical realized trade tapes. Price and PnL metrics
+are gross, while the environment's reward separately applies execution charges.
 """
 
 from __future__ import annotations
@@ -438,12 +438,12 @@ def run_regime_episodes(
     agent_name: str = "ppo",
     deterministic: bool = True,
 ) -> dict[str, dict[str, list[dict]]]:
-    """Run every strategy over identical seeded episodes in every regime.
+    """Run every strategy over paired seeded scenarios in every regime.
 
     Seed family ``k`` (``k < seeds``) covers episode seeds ``seed0 + k·10_000 +
-    i`` for ``i < episodes_per_seed``; the agent AND every named baseline see
-    the same tapes, so a difference between two strategies is never a
-    difference in the flow. Returns ``{regime: {strategy: [row, ...]}}`` with
+    i`` for ``i < episodes_per_seed``; the agent and baselines share exogenous
+    arrival draws, not their endogenous realized prices/fills.
+    Returns ``{regime: {strategy: [row, ...]}}`` with
     one row per episode (``seed, reward, shortfall_bps, is_bps, vwap_slip_bps,
     leftover, completion, fill_rate, mdd_ticks``), ordered by seed family then
     episode.

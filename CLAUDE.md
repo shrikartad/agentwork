@@ -143,6 +143,16 @@ The rank-bootstrap execution kernel now uses exact multiplicity-based re-ranking
 parser check. No statistical method, block draw, or historical report was changed
 by this speedup. New sessions will record their own executable-source fingerprints.
 
+**E7 simulator correction verified:** actual maker executions are fully credited,
+market VWAP excludes those executions, and independent book/arrival/queue/refill
+RNG streams preserve paired exogenous event descriptors across strategies.
+`queue_model="uniform"` is now a pre-match within-step arrival-delay proxy, not
+a post-match haircut. Generated liquidity cannot cross a surviving quote, and
+integer-price multi-level fills preserve exact notional through all metric APIs.
+**341 tests passed / 12 native skips**; a separate 360-episode probe conserved
+quantity/notional with no crossed/locked books. Price/PnL outputs are explicitly
+gross (charges affect reward only). A full fresh E7 run is still required.
+
 **Campaign execution started 2026-09-14:** full E7 retraining/evaluation uses a
 fresh cache. The live ITCH preflight found eight old catalogue entries have only
 checksum stubs, not downloadable tapes. The corrected 15-full-session cohort
@@ -344,8 +354,8 @@ This is the Person A ↔ Person B integration seam.
 
 **Current Person-B next steps:** run the full 15-day tape campaign when bandwidth
 permits, then regenerate and review statistical reports under the current code.
-2019-12-30 is now complete; finish the other 14 sessions. Repair and verify the
-E7 simulator accounting/flow findings before its fresh full-protocol rerun.
+2019-12-30 is now complete; finish the other 14 sessions. The E7 simulator
+accounting/flow fixes are verified; finish and inspect a fresh full-protocol rerun.
 Continue on `hoplite/paros-710e0625`; use a verified E7 cache and do not substitute
 earlier training artifacts without matching their full provenance.
 These two execution tasks are now active; source substitutions and actual
