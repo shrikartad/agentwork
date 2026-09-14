@@ -220,10 +220,7 @@ class OrderBookEnv(_Base):  # type: ignore[misc]
         if seed is not None:
             self._seed0 = int(seed)
         self._rng = np.random.default_rng(self._seed0)
-        if hasattr(self.book, "reset"):
-            self.book.reset()
-        else:
-            self.book = adapt(StubOrderBook())
+        self.book.reset()
         self._seed_book()
         self.t = 0
         self.inventory = self.inventory0

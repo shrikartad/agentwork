@@ -110,6 +110,18 @@ class StubOrderBook:
         self.cum_volume += int(size)
         self._advance()
 
+    def reset(self) -> None:
+        """Clear the book in place while preserving an injected object's identity."""
+        self._bids.clear()
+        self._asks.clear()
+        self.seq = 0
+        self.ts_ns = 0
+        self.cum_volume = 0
+        self.last_trade_px = 0
+        self.last_trade_sz = 0
+        self.last_trade_side = int(Side.NONE)
+        self.version = 0
+
     def _advance(self) -> None:
         self.seq += 1
         self.ts_ns += 1
