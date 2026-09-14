@@ -165,7 +165,7 @@ class EmpiricalVolumeForecaster:
             raise ValueError(f"No history recorded for symbol '{sym}'")
 
         # Strict walk-forward temporal filter: only dates strictly before as_of_date
-        prior_dates = sorted([d for d in self._history[sym].keys() if d < as_of_date])
+        prior_dates = sorted([d for d in self._history[sym] if d < as_of_date])
         if not prior_dates:
             raise ValueError(
                 f"No prior history available for '{sym}' strictly before '{as_of_date}' "
