@@ -138,6 +138,11 @@ is preserved. **1/15 sessions complete.** E7 remains pending: an audit identifie
 post-match queue fill loss and action-dependent random-flow consumption, so the
 earlier rerun is provisional and must not support fairness/superiority claims.
 
+The rank-bootstrap execution kernel now uses exact multiplicity-based re-ranking;
+**37 focused tests pass**, including sort-based CI parity and the full local tape
+parser check. No statistical method, block draw, or historical report was changed
+by this speedup. New sessions will record their own executable-source fingerprints.
+
 **Campaign execution started 2026-09-14:** full E7 retraining/evaluation uses a
 fresh cache. The live ITCH preflight found eight old catalogue entries have only
 checksum stubs, not downloadable tapes. The corrected 15-full-session cohort

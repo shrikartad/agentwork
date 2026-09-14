@@ -46,10 +46,20 @@ def rank_ic(y_true: Sequence[float], y_pred: Sequence[float]) -> float:
     if a.size != b.size or a.size < 2:
         return float("nan")
     ra, rb = _rank(a), _rank(b)
+    return _rank_correlation(ra, rb)
+
+
+def _rank_correlation(ra: np.ndarray, rb: np.ndarray) -> float:
     denom = np.sqrt(((ra - ra.mean()) ** 2).sum() * ((rb - rb.mean()) ** 2).sum())
     if denom <= 0:
         return float("nan")
     return float(((ra - ra.mean()) * (rb - rb.mean())).sum() / denom)
+
+
+def _resampled_ranks(codes: np.ndarray, n_values: int) -> np.ndarray:
+    counts = np.bincount(codes, minlength=n_values)
+    ranks = (2 * np.cumsum(counts) - counts - 1) / 2.0
+    return ranks[codes]
 
 
 def icir(ic_series: Sequence[float], annualize: float = 1.0) -> float:
@@ -270,9 +280,22 @@ def _rank_ic_bootstrap(
     blen = block if block > 0 else max(1, int(np.sqrt(n)))
     n_blocks = max(1, (n + blen - 1) // blen)
     stats = np.empty(n_boot, dtype=np.float64)
+    codes = None
+    if np.isfinite(yt).all() and np.isfinite(yp).all():
+        y_values, y_codes = np.unique(yt, return_inverse=True)
+        p_values, p_codes = np.unique(yp, return_inverse=True)
+        codes = (y_codes, p_codes, y_values.size, p_values.size)
     for b in range(n_boot):
         starts = rng.integers(0, n, size=n_blocks)
         idx = _block_indices(starts, blen, n)
-        stats[b] = rank_ic(yt[idx], yp[idx])
+        if codes is None:
+            stats[b] = rank_ic(yt[idx], yp[idx])
+        else:
+            # Re-rank each draw's multiplicities; slicing original ranks is not Spearman.
+            y_codes, p_codes, n_y, n_p = codes
+            stats[b] = _rank_correlation(
+                _resampled_ranks(y_codes[idx], n_y),
+                _resampled_ranks(p_codes[idx], n_p),
+            )
     lo, hi = np.quantile(stats, [alpha / 2, 1 - alpha / 2])
     return {"lo": float(lo), "hi": float(hi), "mean": float(np.mean(stats))}

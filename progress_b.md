@@ -9,6 +9,16 @@
 
 ### Full-campaign execution update (2026-09-14)
 
+**Execution-throughput milestone:** the E1–E4 bootstrap now re-ranks each draw
+from its value multiplicities instead of sorting both sampled arrays repeatedly.
+Random block draws, tie handling, and the Spearman statistic are unchanged;
+non-finite inputs retain the original path. **37 focused tests passed**, including
+exact CI parity across ties, constant samples, clipped blocks, and non-finite
+inputs plus the full local tape parser check. A bounded 100k-row/100-replication
+probe took 2.178s before and 0.248s after, with zero CI difference; this is a
+kernel timing, not a new market or end-to-end throughput claim. The completed
+2019-12-30 reports retain their original pre-optimization provenance.
+
 **Completed day milestone: 1/15.** The 2019-12-30 AAPL/QQQ E1–E6 reports are
 imported from verified handoff `9ddf4d8`. An independent full 3.524 GB download
 matched the compressed source and both slice hashes. Original-source fingerprint
